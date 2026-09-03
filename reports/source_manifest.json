@@ -1,0 +1,131 @@
+{
+  "as_of": "2026-09-02",
+  "files": [
+    {
+      "file": "yahoo_SPY.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 855033,
+      "sha256": "400999344878732d4cf5193185d44ff499f6a21ffcbe9eb7f8cdd50d9112be82",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:00.887147+00:00"
+    },
+    {
+      "file": "yahoo_QQQ.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/QQQ?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 741287,
+      "sha256": "c1635f55aa14b85b101d851a8025c45447c9985a5f878ef417532538b2b9eeeb",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:00.908637+00:00"
+    },
+    {
+      "file": "yahoo_TLT.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TLT?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 670766,
+      "sha256": "76c13731ec35176d296f320a507e0665154e72b4612b663a22bbef4844d3e316",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:00.752067+00:00"
+    },
+    {
+      "file": "yahoo_VFINX.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/VFINX?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 1217055,
+      "sha256": "d3e99699e84669b6367a3439a999f7a278df859845952b56306ce3c81b31c174",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:00.956549+00:00"
+    },
+    {
+      "file": "yahoo_VUSTX.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/VUSTX?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 1067677,
+      "sha256": "c662f451ef8139105ec81b3a9b93aedc27861ad83b1d2e9ac699af34398ca062",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:00.978985+00:00"
+    },
+    {
+      "file": "yahoo_UPRO.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/UPRO?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 481115,
+      "sha256": "561fe59740c0cd2b074776bb69227eec53f2ac5017d0d20f211995e6d226e767",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:07.402167+00:00"
+    },
+    {
+      "file": "yahoo_SSO.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/SSO?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 561452,
+      "sha256": "524ebb07e77907830296abdc77f423f12427ad407bc835ac94c0959a3f72c251",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:07.377407+00:00"
+    },
+    {
+      "file": "yahoo_TQQQ.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TQQQ?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 470421,
+      "sha256": "3a2299e6c899f7c34efa1ea9097a567a054e59b783813a921392b75baeedd6aa",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:07.479162+00:00"
+    },
+    {
+      "file": "yahoo_TMF.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/TMF?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 441801,
+      "sha256": "7d8a6076a1818bcadd2de250c94c419e21291116614c24890bc73d7ee8f245c7",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:07.471446+00:00"
+    },
+    {
+      "file": "yahoo_SP500TR.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ESP500TR?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 946552,
+      "sha256": "34fc9c4a8147d4335854d49a4f3de9104fcbf0729abedf180c658d671913bc96",
+      "cached_file_timestamp_utc": "2026-09-03T22:51:20.035192+00:00"
+    },
+    {
+      "file": "yahoo_NDX.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ENDX?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 1096624,
+      "sha256": "afc128178bc3a5bff36e8f9e8792baea27439d0cecce422fe1052db29000f119",
+      "cached_file_timestamp_utc": "2026-09-03T22:51:19.951657+00:00"
+    },
+    {
+      "file": "fred_DFF.csv",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DFF",
+      "bytes": 423627,
+      "sha256": "43d94a8dbaf78a4a956b4a0dce6978d743143b8fa8e20db9ca2220a75910b2d8",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:05.553213+00:00"
+    },
+    {
+      "file": "fred_NASDAQXNDX.csv",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQXNDX",
+      "bytes": 136104,
+      "sha256": "c3f1ea8802126909950965bf367eb71d28ef9ac70f62d23596477c63b3c83647",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:11.053542+00:00"
+    },
+    {
+      "file": "fred_NASDAQ100.csv",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQ100",
+      "bytes": 207852,
+      "sha256": "57bf00ad40f0a4e90d49ad765827b7316f0f3e7ec7f29c88f84513e0f2ccda4d",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:11.172994+00:00"
+    },
+    {
+      "file": "nav_UPRO.csv",
+      "url": "https://accounts.profunds.com/etfdata/ByFund/UPRO-historical_nav.csv",
+      "bytes": 421243,
+      "sha256": "67bb9c3c390d618cba8499cda9d50cc5c20b8b891c48287d395db6bd1a4b5350",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:14.991698+00:00"
+    },
+    {
+      "file": "nav_SSO.csv",
+      "url": "https://accounts.profunds.com/etfdata/ByFund/SSO-historical_nav.csv",
+      "bytes": 461161,
+      "sha256": "5ee94ba88c3ab21e1c7f1f23724551c6d58c88de7a930468752db4bb5f7d6303",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:15.132185+00:00"
+    },
+    {
+      "file": "nav_TQQQ.csv",
+      "url": "https://accounts.profunds.com/etfdata/ByFund/TQQQ-historical_nav.csv",
+      "bytes": 408112,
+      "sha256": "b2dd2c59d5f2c26539320654da3e7aeac5a52d9f92be5b7952a8ef42b772826d",
+      "cached_file_timestamp_utc": "2026-09-03T22:50:15.106990+00:00"
+    }
+  ],
+  "runtime": {
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "pandas": "2.2.3",
+    "scipy": "1.17.0",
+    "matplotlib": "3.10.8"
+  }
+}

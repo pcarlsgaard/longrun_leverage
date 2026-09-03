@@ -1,0 +1,7 @@
+underlying,source,first_return,last_return,observations
+SP500,VFINX_grossed_proxy,1980-01-03,1988-01-04,2023
+SP500,SP500TR_index,1988-01-05,2026-09-02,9739
+NASDAQ100,NDX_price_only_proxy,1985-10-02,1999-03-04,3392
+NASDAQ100,NASDAQXNDX_total_return,1999-03-05,2026-09-02,6917
+LONG_TREASURY,VUSTX_duration_mismatch_proxy,1986-05-20,2002-07-30,4088
+LONG_TREASURY,TLT_grossed_proxy,2002-07-31,2026-09-02,6062

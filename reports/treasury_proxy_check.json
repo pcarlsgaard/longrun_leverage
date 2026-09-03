@@ -1,0 +1,7 @@
+{
+  "start": "2002-07-31",
+  "end": "2026-09-02",
+  "daily_correlation": 0.9814566363593142,
+  "TLT_on_VUSTX_return_beta": 1.1095808422248705,
+  "meaning": "Descriptive overlap only; no beta adjustment applied to pre-2002 Treasury history."
+}

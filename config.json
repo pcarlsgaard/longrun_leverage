@@ -1,0 +1,15 @@
+{
+  "as_of": "2026-09-02",
+  "train_end": "2018-12-31",
+  "funds": {
+    "UPRO": {"underlying": "SP500", "leverage": 3, "expense": 0.0089},
+    "SSO": {"underlying": "SP500", "leverage": 2, "expense": 0.0087},
+    "TQQQ": {"underlying": "NASDAQ100", "leverage": 3, "expense": 0.0082},
+    "TMF": {"underlying": "LONG_TREASURY", "leverage": 3, "expense": 0.0090}
+  },
+  "base_financing_spread": 0.005,
+  "spread_scenarios": [0.0, 0.005, 0.01],
+  "proxy_expenses": {"VFINX": 0.0014, "VUSTX": 0.0020, "TLT": 0.0015},
+  "early_nasdaq_dividend_yield": 0.0,
+  "early_nasdaq_dividend_sensitivity": 0.005
+}
