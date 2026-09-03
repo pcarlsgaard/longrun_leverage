@@ -7,7 +7,8 @@ compounding, financing costs, drawdowns and entry-date dependence.
 
 **First run: data through September 2, 2026.** See the
 [initial results and charts](reports/initial_results.md) and
-[methodology](docs/methodology.md). This is a research reconstruction, not an
+[methodology](docs/methodology.md). Download the [initial CSV snapshot](data/snapshots/longrun_leverage_2026-09-02.zip).
+This is a research reconstruction, not an
 assertion that a leveraged ETF is suitable for any particular investor.
 
 ## Run
@@ -30,8 +31,9 @@ snapshot exactly. The initial runtime versions are recorded in the manifest.
 
 The **Build time series** GitHub Actions workflow can also be run manually. It
 produces a downloadable artifact with all generated CSVs and reports. Large
-source and generated data files are excluded from Git; source code, parameters,
-checksums and compact result tables/charts are committed.
+raw source files and working generated CSVs are excluded from Git; source code,
+parameters, checksums and compact result tables/charts are committed, together
+with a compressed initial data snapshot in `data/snapshots/`.
 
 ## What is generated
 
