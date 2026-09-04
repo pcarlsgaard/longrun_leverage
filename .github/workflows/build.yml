@@ -2,9 +2,9 @@ name: Build time series
 on:
   workflow_dispatch:
   push:
-    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/build.yml']
+    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/portfolio_sma_inputs.zip', 'reports/portfolio_sma_manifest.json']
   pull_request:
-    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/build.yml']
+    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/portfolio_sma_inputs.zip', 'reports/portfolio_sma_manifest.json']
 permissions:
   contents: read
 jobs:
@@ -17,9 +17,13 @@ jobs:
           python-version: '3.12'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
+      - name: Rebuild portfolio and SMA analysis offline
+        run: longrun-leverage-analysis --offline
       - name: Download sources and generate outputs
         if: github.event_name == 'workflow_dispatch'
-        run: longrun-leverage --refresh
+        run: |
+          longrun-leverage --refresh
+          longrun-leverage-analysis --refresh
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch'
         with:

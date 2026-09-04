@@ -67,6 +67,39 @@ actual net adjusted returns. Nasdaq means **Nasdaq-100**, not Nasdaq Composite.
 | Nasdaq-100 / TQQQ | 1985-10-01 | Price-only proxy through 1999-03-04; also exports a 0.5% dividend-yield sensitivity |
 | Long Treasuries / TMF | 1986-05-19 | VUSTX before TLT coverage in July 2002; different duration/holdings |
 
+## Portfolio and 200-day SMA analysis
+
+See [portfolio and SMA results](reports/portfolio_and_sma_results.md) for the
+prespecified 14 static portfolios and SSO/UPRO/TQQQ rotations into either the
+corresponding 1× equity index or accrued 3-month Treasury bills. All main tables
+use matched dates; quarterly rebalancing and 200 sessions are primary. Monthly /
+annual rebalancing, 150/250 sessions, and 0/50/100 bp financing are sensitivities.
+
+```bash
+PYTHONPATH=src python -m letf.analysis --offline
+# Or after installation:
+longrun-leverage-analysis --offline
+```
+
+This analysis-only command reuses the original daily histories and does not
+rebuild underlying series. A verified, self-contained input bundle is committed
+at `data/snapshots/portfolio_sma_inputs.zip`, enabling offline analysis from a
+clean clone. It contains the unchanged daily-return CSV and cached FRED DTB3.
+Missing inputs are restored; existing inputs must match recorded hashes.
+The original full-series pipeline still requires its full raw cache offline.
+
+To update, first regenerate daily histories with the existing pipeline and
+updated configuration, then run `longrun-leverage-analysis --refresh` to refresh
+DTB3 and archive the analysis inputs. The analysis adds cash provenance to
+`reports/source_manifest.json` and its own input/configuration/bundle hashes to
+`reports/portfolio_sma_manifest.json`.
+
+Compact metrics, rolling summaries, regime comparisons and sensitivities are
+under `reports/`. Daily strategy returns, positions, T-bill returns and exact
+individual cohorts are written to `data/processed/`. The report documents all
+metric conventions and limitations, including early index proxies and the
+idealized close-to-close execution assumption.
+
 ## Combining funds
 
 The portfolio helper supports fixed initial weights with no further rebalancing,

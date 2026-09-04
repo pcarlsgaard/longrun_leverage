@@ -31,34 +31,36 @@ def download(root: Path, as_of: str, refresh=False):
     jobs += [(f"nav_{s}.csv", f"https://accounts.profunds.com/etfdata/ByFund/{s}-historical_nav.csv")
              for s in ["UPRO", "SSO", "TQQQ"]]
 
-    def fetch(job):
-        name, url = job
-        path = root / name
-        if refresh or not path.exists():
-            for attempt in range(3):
-                try:
-                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                    with urllib.request.urlopen(req, timeout=45) as r:
-                        payload = r.read()
-                    if name.endswith("json"):
-                        result = json.loads(payload)["chart"]["result"][0]
-                        if len(result.get("timestamp", [])) < 100:
-                            raise ValueError("Expected daily history; provider returned too few rows")
-                    elif not payload.startswith((b"observation_date", b"DATE", b"Date,")):
-                        raise ValueError("Unexpected CSV payload")
-                    path.write_bytes(payload)
-                    break
-                except Exception:
-                    if attempt == 2:
-                        raise
-                    time.sleep(attempt + 1)
-        return {"file": name, "url": url, "bytes": path.stat().st_size,
-                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                "cached_file_timestamp_utc": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat()}
-
     with ThreadPoolExecutor(max_workers=4) as pool:
-        records = list(pool.map(fetch, jobs))
+        records = list(pool.map(lambda job: cached_source(root, job, refresh), jobs))
     return records
+
+
+def cached_source(root, job, refresh=False):
+    """Fetch one source using the shared cache, validation and provenance rules."""
+    name, url = job
+    path = root / name
+    if refresh or not path.exists():
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=45) as r:
+                    payload = r.read()
+                if name.endswith("json"):
+                    result = json.loads(payload)["chart"]["result"][0]
+                    if len(result.get("timestamp", [])) < 100:
+                        raise ValueError("Expected daily history; provider returned too few rows")
+                elif not payload.startswith((b"observation_date", b"DATE", b"Date,")):
+                    raise ValueError("Unexpected CSV payload")
+                path.write_bytes(payload)
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                time.sleep(attempt + 1)
+    return {"file": name, "url": url, "bytes": path.stat().st_size,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "cached_file_timestamp_utc": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat()}
 
 
 def yahoo(root, symbol, as_of):

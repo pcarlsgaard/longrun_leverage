@@ -119,6 +119,13 @@
       "bytes": 408112,
       "sha256": "b2dd2c59d5f2c26539320654da3e7aeac5a52d9f92be5b7952a8ef42b772826d",
       "cached_file_timestamp_utc": "2026-09-03T22:50:15.106990+00:00"
+    },
+    {
+      "file": "fred_DTB3.csv",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3",
+      "bytes": 300873,
+      "sha256": "7e27dd3dc9013578905b234a292d75732e86034df917491d932888030813c65a",
+      "cached_file_timestamp_utc": "2026-09-04T00:58:49.713044+00:00"
     }
   ],
   "runtime": {
