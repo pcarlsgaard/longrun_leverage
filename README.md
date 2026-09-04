@@ -152,3 +152,27 @@ Compare portfolios over identical dates. A later analysis can test matched
 Longer holding periods do not remove financing costs or recover money lost by
 a fund that reaches zero. The core simulator includes no investor taxes, new contributions, withdrawals
 or inflation adjustment. Switching costs are tested separately in the falsification extension.
+
+## Capital-reserve experiment
+
+**No reserve remains the best-supported growth baseline.** Small UPRO gains
+under delayed execution do not generalize to SSO or fresh-investor cohorts;
+the staged rules often exhaust reserves before the eventual crisis trough.
+
+See [capital-reserve results](reports/capital_reserve_results.md) for prespecified
+high-water-mark gain harvesting, asymmetric reserve bands, staged trend-recovery
+deployment, and separate drawdown deployment. Fixed 90/10 and 85/15 allocations,
+matched-average cash and effective-leverage controls distinguish timing from
+ordinary lower exposure. Both UPRO/SSO, LAG1/LAG2 and 0/10/25/50-bp costs are tested.
+
+```bash
+PYTHONPATH=src python -m letf.capital_reserve --offline
+PYTHONPATH=src python -m letf.reserve_cohorts
+```
+
+Both commands use the existing verified offline snapshot. The second restarts
+reserve/HWM state for monthly fresh-investor 20/30-year cohorts at 0/25 bp; the
+first also reports the original running-policy cohort convention at all costs.
+Detailed ledgers and fresh cohorts go to `data/processed/`; compact CSVs, five
+figures, assumptions and full-cycle attribution are committed under `reports/`.
+`STATIC_RESERVE_10/15` are aliases for the quarterly `FIXED_90_10/85_15` controls.
