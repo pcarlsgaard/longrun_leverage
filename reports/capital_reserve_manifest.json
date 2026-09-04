@@ -1,0 +1,115 @@
+{
+  "as_of": "2026-09-02",
+  "entry_close": "1986-09-26",
+  "input_hashes": {
+    "config.json": "81650c61c509f432be9f9827d7f53109bbd3e8a016cf248edc0323cd3e85a715",
+    "data/processed/daily_returns.csv": "344bb8118ea047aaae2f3cbff46b7e4c2ccfb7ba75f3131990c4d360c138a370",
+    "data/raw/fred_DTB3.csv": "7e27dd3dc9013578905b234a292d75732e86034df917491d932888030813c65a",
+    "data/snapshots/portfolio_sma_inputs.zip": "dbcc1d90710867480eb51d2133d4eb02fd312208c9a79ad6bdda234d8cffaea5"
+  },
+  "source_hashes": {
+    "src/letf/__init__.py": "dc96c5002ba1332bfa07ad0d1887187358360eb42ba394850c3142df60c02626",
+    "src/letf/analysis.py": "086e035ad8b925e8c0f15141e987828d2260c4059087a7097fdea0c3d435622c",
+    "src/letf/analysis_report.py": "71f33dc6e3374ff41d6e8ce6c90d208557baefa9c0bfee382c1422e7fa384a32",
+    "src/letf/capital_reserve.py": "512609adb4947c6ab1bc5c2fb364e3275685d2a78c5a5c6688f9eb61119b491f",
+    "src/letf/data.py": "163c7c05fe1cc637d069fd80236691f53fa17d9d6494039f113bda92f25d142e",
+    "src/letf/falsification.py": "587e11f969395ad007ab8574f8e930a9f5779139211c498c372b191cb61852e7",
+    "src/letf/falsification_report.py": "41a3b1b2c6bfc994c7622e4b3756570dbf8e7d31756776e3a1c3d536d2cf3c15",
+    "src/letf/model.py": "0d9c33e564f28233d7f27f5a172392e8cd590ef0204fbf66c82de3d3a4a929ba",
+    "src/letf/pipeline.py": "4e0e30148f4e5998821b34a90cc2e7b1e03d0391734c071cdff3b423f1910b97",
+    "src/letf/reserve.py": "9e8b59caade5da9ddc928b4b80f295759e9f520d09a9fd9bbd566693f0dc610e",
+    "src/letf/reserve_cohorts.py": "eeb56509d228fe3eb978bb9f54d55c80d1aa2b103f0d89c4d32705abf2c2d81d",
+    "src/letf/reserve_report.py": "ea2e1f7092804d2c0a693f6e16ee8da448e874af5c6a42354ad6e1ccae19832d"
+  },
+  "rules": {
+    "NO_RESERVE": {
+      "kind": "none",
+      "deployment": "staged",
+      "initial": 0.0,
+      "cap": 0.15,
+      "harvest": 0.1,
+      "fixed": 0.1,
+      "frequency": "quarterly"
+    },
+    "FIXED_90_10": {
+      "kind": "fixed",
+      "deployment": "staged",
+      "initial": 0.0,
+      "cap": 0.15,
+      "harvest": 0.1,
+      "fixed": 0.1,
+      "frequency": "quarterly"
+    },
+    "FIXED_85_15": {
+      "kind": "fixed",
+      "deployment": "staged",
+      "initial": 0.0,
+      "cap": 0.15,
+      "harvest": 0.1,
+      "fixed": 0.15,
+      "frequency": "quarterly"
+    },
+    "HWM_RESERVE": {
+      "kind": "hwm",
+      "deployment": "staged",
+      "initial": 0.0,
+      "cap": 0.15,
+      "harvest": 0.1,
+      "fixed": 0.1,
+      "frequency": "quarterly"
+    },
+    "ASYMMETRIC_RESERVE_BAND": {
+      "kind": "band",
+      "deployment": "staged",
+      "initial": 0.1,
+      "cap": 0.2,
+      "harvest": 0.1,
+      "fixed": 0.1,
+      "frequency": "quarterly"
+    },
+    "HWM_DRAWDOWN": {
+      "kind": "hwm",
+      "deployment": "drawdown",
+      "initial": 0.0,
+      "cap": 0.15,
+      "harvest": 0.1,
+      "fixed": 0.1,
+      "frequency": "quarterly"
+    },
+    "BAND_DRAWDOWN": {
+      "kind": "band",
+      "deployment": "drawdown",
+      "initial": 0.1,
+      "cap": 0.2,
+      "harvest": 0.1,
+      "fixed": 0.1,
+      "frequency": "quarterly"
+    }
+  },
+  "lags": [
+    1,
+    2
+  ],
+  "cost_bps": [
+    0,
+    10,
+    25,
+    50
+  ],
+  "cap_grid": [
+    0.1,
+    0.15,
+    0.2
+  ],
+  "harvest_grid": [
+    0.05,
+    0.1,
+    0.15
+  ],
+  "fixed_matching": "Ex-post diagnostic: full-sample average rounded half-up to nearest 5%; not optimized",
+  "runtime": {
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "pandas": "2.2.3"
+  }
+}

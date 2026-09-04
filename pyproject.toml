@@ -14,5 +14,7 @@ longrun-leverage = "letf.pipeline:main"
 longrun-leverage-analysis = "letf.analysis:main"
 longrun-leverage-falsification = "letf.falsification:main"
 
+longrun-leverage-reserve = "letf.capital_reserve:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]

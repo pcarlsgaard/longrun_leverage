@@ -21,6 +21,10 @@ jobs:
         run: longrun-leverage-analysis --offline
       - name: Rebuild SMA falsification battery offline
         run: longrun-leverage-falsification --offline
+      - name: Rebuild capital reserve experiment offline
+        run: |
+          longrun-leverage-reserve --offline
+          PYTHONPATH=src python -m letf.reserve_cohorts
       - name: Download sources and generate outputs
         if: github.event_name == 'workflow_dispatch'
         run: |
