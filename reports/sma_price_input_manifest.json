@@ -1,0 +1,25 @@
+{
+  "as_of": "2026-09-02",
+  "files": [
+    {
+      "file": "yahoo_GSPC.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 1544757,
+      "sha256": "66fa6b1e5b8edb2915c97ef97b0b44508fef744015b6253caecec19ce01af7bd",
+      "cached_file_timestamp_utc": "2026-09-04T01:42:29.040248+00:00"
+    },
+    {
+      "file": "yahoo_NDX.json",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ENDX?period1=0&period2=1788393600&interval=1d&events=div%2Csplits%2CcapitalGains",
+      "bytes": 1096624,
+      "sha256": "7028060bf3dab9b84b69b44cc203d7dc7a1d0aca6ea46b4da5ef0a80e66bb923",
+      "cached_file_timestamp_utc": "2026-09-04T01:42:29.012205+00:00"
+    }
+  ],
+  "inputs_sha256": {
+    "data/raw/yahoo_GSPC.json": "66fa6b1e5b8edb2915c97ef97b0b44508fef744015b6253caecec19ce01af7bd",
+    "data/raw/yahoo_NDX.json": "7028060bf3dab9b84b69b44cc203d7dc7a1d0aca6ea46b4da5ef0a80e66bb923"
+  },
+  "bundle_sha256": "3cba13c65a48dc85160a2721b955485d2a1aa01b508d146325a90137eefa2e4c",
+  "purpose": "Close price signal only; invested returns unchanged"
+}
