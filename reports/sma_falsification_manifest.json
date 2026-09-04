@@ -1,0 +1,37 @@
+{
+  "as_of": "2026-09-02",
+  "entry_close": "1986-09-26",
+  "input_sha256": {
+    "config.json": "81650c61c509f432be9f9827d7f53109bbd3e8a016cf248edc0323cd3e85a715",
+    "data/processed/daily_returns.csv": "344bb8118ea047aaae2f3cbff46b7e4c2ccfb7ba75f3131990c4d360c138a370",
+    "data/raw/fred_DTB3.csv": "7e27dd3dc9013578905b234a292d75732e86034df917491d932888030813c65a",
+    "data/snapshots/sma_price_inputs.zip": "3cba13c65a48dc85160a2721b955485d2a1aa01b508d146325a90137eefa2e4c"
+  },
+  "grid": {
+    "sma_days": [
+      150,
+      200,
+      250
+    ],
+    "spread_bps": [
+      0,
+      50,
+      100
+    ],
+    "lag": [
+      1,
+      2
+    ],
+    "switch_cost_bps": [
+      0,
+      10,
+      25,
+      50
+    ]
+  },
+  "runtime": {
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "pandas": "2.2.3"
+  }
+}

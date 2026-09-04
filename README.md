@@ -100,6 +100,34 @@ individual cohorts are written to `data/processed/`. The report documents all
 metric conventions and limitations, including early index proxies and the
 idealized close-to-close execution assumption.
 
+## SMA robustness and falsification
+
+See [falsification results](reports/sma_falsification_results.md) for the execution-delay,
+switching-cost, historical-subperiod, price-signal, volatility and attribution tests.
+**The UPRO-to-1× result survives modest costs and a full-session delay separately,
+but loses its CAGR advantage with delay plus 50 bp per switch.** Performance also
+depends on regime: the 2000–2009 decade contributes most of the net benefit.
+
+```bash
+PYTHONPATH=src python -m letf.falsification --offline
+# Or after installation:
+longrun-leverage-falsification --offline
+```
+
+This command verifies/restores the original frozen daily returns and DTB3, plus
+`data/snapshots/sma_price_inputs.zip` for price-only signal comparisons. Original
+histories, source manifests and validation outputs are untouched. The new bundle
+and raw source hashes are in `reports/sma_price_input_manifest.json`; run settings
+and dependency versions are in `reports/sma_falsification_manifest.json`.
+Online mode only obtains missing price-signal sources, retaining the fixed endpoint
+and the original verified histories. Updating the original snapshot requires a
+separate, deliberate refresh of the price bundle to the same endpoint.
+
+All eight requested compact CSVs and the full prespecified sensitivity grid are
+committed under `reports/`, with four figures. Daily returns and positions are
+generated under `data/processed/`. Tests cover symmetric lagging, transition-only
+costs, volatility buckets, source calendars, boundaries, attribution and stress dates.
+
 ## Combining funds
 
 The portfolio helper supports fixed initial weights with no further rebalancing,
@@ -122,5 +150,5 @@ growth = wealth(result, initial=10_000)
 Compare portfolios over identical dates. A later analysis can test matched
 20–30-year entry cohorts, contributions, rebalancing policies and real returns.
 Longer holding periods do not remove financing costs or recover money lost by
-a fund that reaches zero. The current simulator includes no investor taxes,
-transaction costs, new contributions, withdrawals or inflation adjustment.
+a fund that reaches zero. The core simulator includes no investor taxes, new contributions, withdrawals
+or inflation adjustment. Switching costs are tested separately in the falsification extension.
