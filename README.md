@@ -176,3 +176,10 @@ first also reports the original running-policy cohort convention at all costs.
 Detailed ledgers and fresh cohorts go to `data/processed/`; compact CSVs, five
 figures, assumptions and full-cycle attribution are committed under `reports/`.
 `STATIC_RESERVE_10/15` are aliases for the quarterly `FIXED_90_10/85_15` controls.
+
+## Regime-signal comparison
+
+The [regime-signal report](reports/regime_signal_results.md) compares SMA, absolute
+and relative volatility, efficiency, regression quality, sign churn and Awesome
+Oscillator for 3×/1× S&P leverage management, including matched-exposure controls.
+Reproduce the five compact reports offline with `PYTHONPATH=src python -m letf.regime_signals`.
