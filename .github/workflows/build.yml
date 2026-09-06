@@ -18,21 +18,32 @@ jobs:
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
       - name: Rebuild portfolio and SMA analysis offline
+        if: github.event_name != 'pull_request'
         run: longrun-leverage-analysis --offline
       - name: Rebuild SMA falsification battery offline
+        if: github.event_name != 'pull_request'
         run: longrun-leverage-falsification --offline
       - name: Rebuild capital reserve experiment offline
+        if: github.event_name != 'pull_request'
         run: |
           longrun-leverage-reserve --offline
           PYTHONPATH=src python -m letf.reserve_cohorts
+      - name: Rebuild canonical price-only signal revision
+        run: PYTHONPATH=src python -m letf.price_signal_revision
+      - name: Build price-signal cohort distributions
+        run: PYTHONPATH=src python -m letf.cohort_distributions
+      - name: Test common S&P SMA signal for TQQQ
+        run: PYTHONPATH=src python -m letf.cross_index_signal
       - name: Download sources and generate outputs
         if: github.event_name == 'workflow_dispatch'
         run: |
           longrun-leverage --refresh
           longrun-leverage-analysis --refresh
           longrun-leverage-falsification --offline
+          PYTHONPATH=src python -m letf.price_signal_revision
+          PYTHONPATH=src python -m letf.cohort_distributions
+          PYTHONPATH=src python -m letf.cross_index_signal
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch'
         with:
           name: longrun-leverage-timeseries
           path: |
