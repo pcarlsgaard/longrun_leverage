@@ -32,6 +32,8 @@ jobs:
         run: PYTHONPATH=src python -m letf.price_signal_revision
       - name: Build price-signal cohort distributions
         run: PYTHONPATH=src python -m letf.cohort_distributions
+      - name: Test common S&P SMA signal for TQQQ
+        run: PYTHONPATH=src python -m letf.cross_index_signal
       - name: Download sources and generate outputs
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -40,6 +42,7 @@ jobs:
           longrun-leverage-falsification --offline
           PYTHONPATH=src python -m letf.price_signal_revision
           PYTHONPATH=src python -m letf.cohort_distributions
+          PYTHONPATH=src python -m letf.cross_index_signal
       - uses: actions/upload-artifact@v4
         with:
           name: longrun-leverage-timeseries
