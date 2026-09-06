@@ -30,6 +30,8 @@ jobs:
           PYTHONPATH=src python -m letf.reserve_cohorts
       - name: Rebuild canonical price-only signal revision
         run: PYTHONPATH=src python -m letf.price_signal_revision
+      - name: Build price-signal cohort distributions
+        run: PYTHONPATH=src python -m letf.cohort_distributions
       - name: Download sources and generate outputs
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -37,6 +39,7 @@ jobs:
           longrun-leverage-analysis --refresh
           longrun-leverage-falsification --offline
           PYTHONPATH=src python -m letf.price_signal_revision
+          PYTHONPATH=src python -m letf.cohort_distributions
       - uses: actions/upload-artifact@v4
         with:
           name: longrun-leverage-timeseries
