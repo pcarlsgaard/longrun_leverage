@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 
 from letf.hedge_alternatives import (_table, cagr, concentration_table, constant_leverage,
-                                     describe, implied_financing, max_drawdown,
-                                     window_table)
+                                     describe, duration_sweep, implied_financing,
+                                     max_drawdown, window_table)
 
 
 def constant(rate, index):
@@ -193,3 +193,45 @@ class ImpliedFinancingTests(unittest.TestCase):
         _, days, _, financing = self.financing()
         annual = float((financing / days * 365).mean())
         self.assertTrue(.01 < annual < .08, annual)
+
+
+class SweepTests(unittest.TestCase):
+    """The two axes the ranking turns on: bond duration, and the safe blend."""
+
+    @classmethod
+    def setUpClass(cls):
+        from pathlib import Path
+        from letf.analysis import load_inputs
+        cls.root = Path(__file__).resolve().parent.parent
+        cls.daily, cls.config = load_inputs(cls.root, offline=True)
+        cls.frame = cls.daily[['SP500_1X', 'LONG_TREASURY_1X', 'TBILL_3M_1X',
+                               'UPRO_SPREAD_50BP', 'TMF_SPREAD_50BP']].dropna()
+
+    def sweep(self):
+        return duration_sweep(self.daily, self.frame.index, self.daily.index,
+                              self.config['funds']['UPRO']['expense'],
+                              self.config['funds']['TMF']['expense'])
+
+    def test_duration_exposure_is_weight_times_leverage(self):
+        table = self.sweep()
+        np.testing.assert_allclose(table.duration_exposure,
+                                   table.bond_weight * table.bond_leverage, atol=1e-12)
+
+    def test_zero_weight_appears_once_and_carries_no_duration(self):
+        table = self.sweep()
+        none = table[table.bond_weight == 0]
+        self.assertEqual(len(none), 1)
+        self.assertEqual(float(none.duration_exposure.iloc[0]), 0.)
+
+    def test_more_duration_costs_more_in_the_rates_shock(self):
+        """The whole point of the column: 2022 gets worse as duration rises."""
+        table = self.sweep()
+        levered = table[table.bond_leverage > 0].sort_values('duration_exposure')
+        self.assertLess(float(levered.rates_shock_2022.iloc[-1]),
+                        float(levered.rates_shock_2022.iloc[0]))
+
+    def test_the_modern_cohort_column_is_a_subset_of_the_full_one(self):
+        """Dropping early cohorts can only remove candidates for the minimum."""
+        table = self.sweep()
+        self.assertTrue((table.cohort_10y_min_cagr_from_2000
+                         >= table.cohort_10y_min_cagr - 1e-12).all())

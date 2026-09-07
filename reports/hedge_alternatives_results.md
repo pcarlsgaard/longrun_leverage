@@ -312,6 +312,77 @@ each way may be optimistic. And equity skew makes in-the-money calls dearer than
 a single volatility charges, which lands hardest on exactly the strikes the
 table above prefers.
 
+## The bond sleeve is one asset, and one bet
+
+Every hedged structure above buys its protection from the same place: long
+Treasuries, the only bond series this repository has. What separates them is how
+much duration they take — sleeve weight times sleeve leverage. Nothing else in
+this report varies that axis, and it is the largest unhedged bet here.
+
+| bond_weight | bond_leverage | duration_exposure | cagr | max_drawdown | cohort_10y_min_cagr | cohort_10y_min_cagr_from_2000 | dot_com_return | rates_shock_2022 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0% | 0 | 0.00 | 14.72% | -98.1% | -27.21% | -23.23% | -92.3% | -56.3% |
+| 20% | 0 | 0.00 | 15.23% | -93.3% | -19.12% | -15.65% | -85.1% | -46.1% |
+| 30% | 0 | 0.00 | 14.80% | -88.9% | -15.50% | -12.36% | -79.9% | -40.7% |
+| 40% | 0 | 0.00 | 14.00% | -82.3% | -12.15% | -9.38% | -73.3% | -35.2% |
+| 50% | 0 | 0.00 | 12.87% | -73.1% | -9.03% | -6.69% | -65.1% | -29.4% |
+| 20% | 1 | 0.20 | 16.41% | -92.0% | -17.60% | -13.67% | -83.8% | -51.2% |
+| 30% | 1 | 0.30 | 16.38% | -85.7% | -13.36% | -9.58% | -77.4% | -48.6% |
+| 20% | 2 | 0.40 | 17.37% | -90.5% | -16.19% | -11.79% | -82.5% | -55.7% |
+| 40% | 1 | 0.40 | 15.89% | -76.2% | -9.44% | -5.90% | -69.3% | -46.0% |
+| 50% | 1 | 0.50 | 15.00% | -67.1% | -5.81% | -2.59% | -58.9% | -43.5% |
+| 30% | 2 | 0.60 | 17.55% | -82.2% | -11.49% | -7.06% | -75.0% | -55.5% |
+| 20% | 3 | 0.60 | 18.25% | -88.8% | -14.76% | -9.90% | -81.1% | -59.8% |
+| 40% | 2 | 0.80 | 17.16% | -73.3% | -7.20% | -2.92% | -65.1% | -55.4% |
+| 30% | 3 | 0.90 | 18.52% | -79.5% | -9.68% | -4.72% | -72.3% | -61.5% |
+| 50% | 2 | 1.00 | 16.26% | -62.8% | -3.30% | 0.15% | -52.5% | -55.3% |
+| 40% | 3 | 1.20 | 18.08% | -70.3% | -5.13% | -0.99% | -60.6% | -63.2% |
+| 50% | 3 | 1.50 | 17.02% | -71.7% | -1.08% | 2.12% | -45.5% | -64.9% |
+
+More duration monotonically raises the return and improves every tail column,
+and monotonically worsens 2022. Both halves are the same fact seen twice: the
+window is one long decline in yields. Unleveraged long Treasuries returned about
+9% a year through 2011 and about -8% a year from 2021.
+
+The from-2000 column is there to test whether the tail benefit is only the early
+bond regime. It is not — duration still improves the worst decade for cohorts
+entering from 2000. But that is weaker evidence than it looks. Duration
+protected the *equity* crises of 2000, 2008 and 2020, when Treasuries rallied.
+The one time the hedge failed was 2022, and by then equities had compounded far
+enough through the 2010s that no ten-year window containing it was ever a worst
+case. **The failure never landed in the statistic.** One rates shock, and it
+arrived at a forgiving moment.
+
+## Cutting duration at a fixed return is not de-risking
+
+The option structures have the same axis, and an investor can dial it with two
+ordinary funds by splitting the safe sleeve between long Treasuries and bills.
+The best cell at each blend, among those reaching the return band, ranked by
+worst twenty-year cohort:
+
+| treasury_share | moneyness | premium_budget | duration_exposure | cagr | max_drawdown | cohort_20y_min_cagr | cohort_30y_min_cagr | dot_com_return | rates_shock_2022 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0% | 0.90 | 65% | 0.00 | 19.19% | -88.6% | 4.50% | 13.18% | -84.6% | -52.3% |
+| 25% | 0.85 | 65% | 0.09 | 19.04% | -84.5% | 6.15% | 14.01% | -81.6% | -51.6% |
+| 50% | 0.90 | 55% | 0.22 | 18.81% | -77.5% | 7.34% | 14.34% | -74.7% | -51.4% |
+| 75% | 0.80 | 65% | 0.26 | 18.93% | -78.7% | 8.27% | 15.08% | -77.0% | -53.0% |
+| 100% | 0.85 | 55% | 0.45 | 18.92% | -72.0% | 9.68% | 15.82% | -69.1% | -54.8% |
+
+Read the drawdown column against the treasury column. Holding return roughly
+constant, going from an all-Treasury safe sleeve to an all-bills one costs
+**17 points of drawdown** and
+**5.2 points of worst
+twenty-year cohort**, and buys **2.5 points**
+of 2022 protection.
+
+That is the opposite of the intended effect, and the mechanism is not subtle:
+holding the return fixed while removing duration forces the option budget up,
+and the budget is the dominant risk control in this family. At this return level
+the marginal risk is not the bond sleeve, it is how much of the portfolio sits
+in contracts that can expire worthless. An investor who distrusts long-dated
+government debt enough to act on it should lower the return target rather than
+swap Treasuries for bills at an unchanged one.
+
 ## Re-levering defeats the bounded loss
 
 `LEAPS_RESTRUCK_3X` re-strikes to 3x of *current* wealth at each roll
