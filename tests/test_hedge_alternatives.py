@@ -3,8 +3,9 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from letf.hedge_alternatives import (_table, cagr, concentration_table, describe,
-                                     max_drawdown, window_table)
+from letf.hedge_alternatives import (_table, cagr, concentration_table, constant_leverage,
+                                     describe, implied_financing, max_drawdown,
+                                     window_table)
 
 
 def constant(rate, index):
@@ -90,3 +91,105 @@ class MarkdownTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ResetLadderTests(unittest.TestCase):
+    def setUp(self):
+        self.ix = pd.bdate_range('2000-01-03', periods=1500)
+        rng = np.random.default_rng(17)
+        self.u = pd.Series(rng.normal(.0004, .011, len(self.ix)), index=self.ix)
+        self.f = pd.Series(.04 / 252, index=self.ix)
+
+    def test_unit_leverage_is_the_underlying(self):
+        out = constant_leverage(self.u, self.f, 1., 'M')
+        np.testing.assert_allclose(out.to_numpy(), self.u.to_numpy(), atol=1e-14)
+
+    def test_daily_reset_matches_the_fund_identity(self):
+        out = constant_leverage(self.u, self.f, 3., 'D')
+        np.testing.assert_allclose(out.to_numpy(), (3 * self.u - 2 * self.f).to_numpy(), atol=1e-14)
+
+    def grind(self):
+        """A slide no single session could bust, but a whole year of it can."""
+        crashed = self.u.copy()
+        crashed.iloc[500:530] = -.05
+        return crashed
+
+    def test_wipeout_is_absorbing(self):
+        wealth = (1 + constant_leverage(self.grind(), self.f, 3., 'Y')).cumprod()
+        self.assertEqual(float(wealth.iloc[-1]), 0.)
+        dead = wealth[wealth <= 0].index[0]
+        self.assertTrue((wealth.loc[dead:] == 0).all())
+
+    def test_a_daily_reset_survives_what_a_slow_reset_does_not(self):
+        """The point of the section: the cliff is reset frequency, not the drop."""
+        crashed = self.grind()
+        fast = (1 + constant_leverage(crashed, self.f, 3., 'D')).cumprod()
+        slow = (1 + constant_leverage(crashed, self.f, 3., 'Y')).cumprod()
+        self.assertGreater(float(fast.iloc[-1]), 0.)
+        self.assertEqual(float(slow.iloc[-1]), 0.)
+
+    def test_slow_reset_beats_daily_on_an_oscillating_path(self):
+        """The mechanism itself: a daily reset sells low and buys high, a slow one does not."""
+        swinging = pd.Series(np.where(np.arange(len(self.ix)) % 2 == 0, .02, -.02),
+                             index=self.ix)
+        fast = float((1 + constant_leverage(swinging, self.f, 3., 'D')).prod())
+        slow = float((1 + constant_leverage(swinging, self.f, 3., 'M')).prod())
+        self.assertLess(fast, slow)
+
+    def test_slow_reset_loses_to_daily_on_a_smooth_rise(self):
+        """And the benefit really is about volatility, not about patience.
+
+        With no volatility to harvest, holding the position lets a gain dilute
+        the leverage — the assets grow while the loan does not — so the slow
+        reset drifts below target and earns less. Anyone reading the ladder as
+        "rebalance less often" rather than "volatility is what a daily reset
+        pays for" would get this backwards.
+        """
+        rising = pd.Series(.0006, index=self.ix)
+        fast = float((1 + constant_leverage(rising, self.f, 3., 'D')).prod())
+        slow = float((1 + constant_leverage(rising, self.f, 3., 'M')).prod())
+        self.assertGreater(fast, slow)
+
+    def test_invalid_inputs_are_rejected(self):
+        with self.assertRaises(ValueError):
+            constant_leverage(self.u, self.f.iloc[1:], 3., 'M')
+        with self.assertRaises(ValueError):
+            constant_leverage(self.u, self.f, .5, 'M')
+
+
+class ImpliedFinancingTests(unittest.TestCase):
+    """The recovered financing must be the real funding term, not a curve fit."""
+
+    @classmethod
+    def setUpClass(cls):
+        from pathlib import Path
+        from letf.analysis import load_inputs
+        cls.daily, cls.config = load_inputs(Path(__file__).resolve().parent.parent, offline=True)
+
+    def financing(self):
+        from letf.model import calendar_days
+        frame = self.daily[['SP500_1X', 'UPRO_SPREAD_50BP', 'SSO_SPREAD_50BP']].dropna()
+        ix = frame.index
+        days = calendar_days(ix, self.daily.index[self.daily.index.get_loc(ix[0]) - 1])
+        expense = self.config['funds']['UPRO']['expense']
+        return frame, days, expense, implied_financing(
+            frame.SP500_1X, frame.UPRO_SPREAD_50BP, 3., expense, days)
+
+    def test_round_trips_the_series_it_was_recovered_from(self):
+        frame, days, expense, financing = self.financing()
+        rebuilt = 3 * frame.SP500_1X - 2 * financing - expense * days / 365
+        np.testing.assert_allclose(rebuilt.to_numpy(), frame.UPRO_SPREAD_50BP.to_numpy(),
+                                   atol=1e-15)
+
+    def test_reproduces_a_fund_it_was_not_recovered_from(self):
+        """Recovered from the 3x fund, it must also rebuild the 2x one."""
+        frame, days, _, financing = self.financing()
+        expense = self.config['funds']['SSO']['expense']
+        rebuilt = 2 * frame.SP500_1X - 1 * financing - expense * days / 365
+        np.testing.assert_allclose(rebuilt.to_numpy(), frame.SSO_SPREAD_50BP.to_numpy(),
+                                   atol=1e-10)
+
+    def test_recovers_a_plausible_borrowing_rate(self):
+        _, days, _, financing = self.financing()
+        annual = float((financing / days * 365).mean())
+        self.assertTrue(.01 < annual < .08, annual)
