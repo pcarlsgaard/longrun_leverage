@@ -313,7 +313,7 @@ def run(root):
     manifest=dict(as_of=config['as_of'],entry_close=str(calendar[calendar.get_loc(common[0])-1].date()),
         input_hashes={rel:sha(root/rel) for rel in ('config.json','data/processed/daily_returns.csv',
             'data/raw/fred_DTB3.csv','data/snapshots/portfolio_sma_inputs.zip')},
-        source_hashes=source_hashes(root, __name__),
+        source_hashes=source_hashes(root, __spec__.name),
         rules={name:asdict(rule) for name,rule in PRIMARY_RULES.items()},
         lags=[1,2],cost_bps=list(COSTS),cap_grid=[.10,.15,.20],harvest_grid=[.05,.10,.15],
         fixed_matching='Ex-post diagnostic: full-sample average rounded half-up to nearest 5%; not optimized',

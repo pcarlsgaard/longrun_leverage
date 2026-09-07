@@ -72,6 +72,12 @@ def source_hashes(root, module: str) -> dict:
     catches imports made inside a function body.
     """
     root = Path(root)
+    # Callers must pass __spec__.name, not __name__: under `python -m letf.x`
+    # the latter is "__main__", which resolves to no file and would silently
+    # record an empty manifest.
+    if module == '__main__' or '.' not in module:
+        raise ValueError(f'Expected a dotted module name, got {module!r} '
+                         '(use __spec__.name, not __name__)')
     package = module.split('.')[0]
 
     def path_of(name):

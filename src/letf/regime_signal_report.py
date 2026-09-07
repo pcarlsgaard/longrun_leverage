@@ -1,7 +1,4 @@
 """Compact, reproducible report for the prespecified regime experiment."""
-import platform
-import numpy as np
-import pandas as pd
 from .analysis import sha
 from .regime_signals import SMA
 
@@ -236,7 +233,9 @@ held-out validation. Earlier source-proxy, financing, gross-1×, synthetic-fund 
 execution assumptions remain in force; taxes and actual market impact are not modeled.
 There is no Nasdaq replication or combined-signal fit in this focused experiment.
 
-Runtime: Python {python}, NumPy {numpy}, pandas {pandas}.
+Runtime versions and source hashes are in `reports/regime_signal_manifest.json`.
+They are deliberately not repeated here: this report must be byte-identical when
+regenerated, and a version string cannot be.
 
 Verified input SHA-256:
 
@@ -244,7 +243,7 @@ Verified input SHA-256:
 '''
     paths=['config.json','data/snapshots/portfolio_sma_inputs.zip','data/snapshots/sma_price_inputs.zip']
     hashes='\n'.join(f'- `{p}`: `{sha(root/p)}`' for p in paths)
-    text=text.format(ao_note=ao_note,checks=checks,python=platform.python_version(),numpy=np.__version__,pandas=pd.__version__,hashes=hashes,
+    text=text.format(ao_note=ao_note,checks=checks,hashes=hashes,
         full_table=table(['Signal','CAGR LAG1','CAGR LAG2','Vol LAG2','Max DD LAG2','Sharpe','Mean exposure','Switches','Timing Δ pp','Equal-fee Δ pp'],rows),
         robust_table=table(['Signal','Equal-fee full-window Δ range, pp','Positive full scenarios','Positive subperiod scenarios'],robustness),
         sub_table=table(['Signal',*periods],subrows),timing_table=table(['Signal',*periods],timingrows),

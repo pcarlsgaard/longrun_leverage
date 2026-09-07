@@ -72,7 +72,7 @@ def summarize(root,f):
         summary_sha256=sha(root/'reports/capital_reserve_fresh_rolling_summary.csv'),
         input_bundle_sha256=sha(root/'data/snapshots/portfolio_sma_inputs.zip'),
         config_sha256=sha(root/'config.json'),
-        source_hashes=source_hashes(root, __name__))
+        source_hashes=source_hashes(root, __spec__.name))
     (root/'reports/capital_reserve_fresh_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     from .reserve_report import refresh_report
     if (root/'reports/capital_reserve_manifest.json').exists():

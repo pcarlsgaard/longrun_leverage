@@ -73,3 +73,23 @@ class SourceHashTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ModuleNameGuardTests(unittest.TestCase):
+    """`__name__` is "__main__" under `python -m`, which silently hashed nothing."""
+
+    def test_main_is_rejected_rather_than_returning_nothing(self):
+        with self.assertRaises(ValueError):
+            source_hashes(ROOT, '__main__')
+
+    def test_a_bare_name_is_rejected(self):
+        with self.assertRaises(ValueError):
+            source_hashes(ROOT, 'letf')
+
+    def test_every_manifest_writer_passes_a_dotted_name(self):
+        import re
+        offenders = []
+        for path in sorted((ROOT / 'src' / 'letf').glob('*.py')):
+            if re.search(r'source_hashes\(\s*root\s*,\s*__name__\s*\)', path.read_text()):
+                offenders.append(path.name)
+        self.assertEqual(offenders, [])

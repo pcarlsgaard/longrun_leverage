@@ -246,7 +246,9 @@ held-out validation. Earlier source-proxy, financing, gross-1×, synthetic-fund 
 execution assumptions remain in force; taxes and actual market impact are not modeled.
 There is no Nasdaq replication or combined-signal fit in this focused experiment.
 
-Runtime: Python 3.11.15, NumPy 2.4.6, pandas 3.0.5.
+Runtime versions and source hashes are in `reports/regime_signal_manifest.json`.
+They are deliberately not repeated here: this report must be byte-identical when
+regenerated, and a version string cannot be.
 
 Verified input SHA-256:
 

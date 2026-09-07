@@ -1,29 +1,19 @@
 {
-  "cohort_kind": "fresh_investor_reset",
-  "cost_bps": [
-    0,
-    25
+  "as_of": "2026-09-02",
+  "window": [
+    "1986-09-29",
+    "2026-09-02"
   ],
-  "lags": [
-    1,
-    2
-  ],
-  "funds": [
-    "UPRO",
-    "SSO"
-  ],
-  "horizons": [
-    20,
-    30
-  ],
-  "cohort_rows": 20160,
-  "summary_sha256": "051fd1396c9fbf109e4f4ac1b0d87df20469a667565019cb64656d69ade529f4",
-  "input_bundle_sha256": "dbcc1d90710867480eb51d2133d4eb02fd312208c9a79ad6bdda234d8cffaea5",
-  "config_sha256": "81650c61c509f432be9f9827d7f53109bbd3e8a016cf248edc0323cd3e85a715",
+  "comparator_rows_verified": 8,
+  "signal_source": "PRICE_INDEX",
+  "input_hashes": {
+    "config.json": "81650c61c509f432be9f9827d7f53109bbd3e8a016cf248edc0323cd3e85a715",
+    "data/snapshots/portfolio_sma_inputs.zip": "dbcc1d90710867480eb51d2133d4eb02fd312208c9a79ad6bdda234d8cffaea5",
+    "data/snapshots/sma_price_inputs.zip": "3cba13c65a48dc85160a2721b955485d2a1aa01b508d146325a90137eefa2e4c"
+  },
   "source_hashes": {
     "src/letf/analysis.py": "e92b85319efd94dcb4c7862ed80b01cdad6243d1b0a53758e3d1030d0afe21de",
     "src/letf/analysis_report.py": "d68c6b1f9e00a0b841cbf6cd35fd7287ee216adc48715a763ac10e9498ced75d",
-    "src/letf/capital_reserve.py": "1c8089fd53df619d5c713cf086b7737e6413c971ce7e6051546f11778eb963ee",
     "src/letf/cohorts.py": "40e0130a8fb174c9afb3216c17cf3d3da9a900cd3de8dbd2ef1a4778284d1c1c",
     "src/letf/data.py": "163c7c05fe1cc637d069fd80236691f53fa17d9d6494039f113bda92f25d142e",
     "src/letf/falsification.py": "af5722b9b1a5785d4ae0e4583243c5beeaa58172525d1101af5fa6e44915ebb7",
@@ -31,10 +21,14 @@
     "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
     "src/letf/pipeline.py": "7d60efd68b7e7400a2b0258c59655174e4faaf6c13a99a73343cb9f9eed1dd00",
     "src/letf/provenance.py": "9154c1bbe16bb3998e8ba66338ae3accff76ebd2f047215438453b69ee6f17f8",
-    "src/letf/reserve.py": "0025c141f7bb8986c79b71c43034d7dbd60118af5f43afcf8d757c92b34ff82b",
-    "src/letf/reserve_cohorts.py": "e5386988232e1eb9c7470a8bef313f964ceddd74717b499ef3cd2af3634381e3",
-    "src/letf/reserve_report.py": "ea2e1f7092804d2c0a693f6e16ee8da448e874af5c6a42354ad6e1ccae19832d",
+    "src/letf/regime_signal_report.py": "d3c6789aaa4b8fd4976f2995b8d10fe08acad194f197c9a342c1b013a650d439",
+    "src/letf/regime_signals.py": "e77f3fbc9ed62830b8d41ce12ba97ddd8e285ac8a39860a3ae962bec0087b373",
     "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
     "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe"
+  },
+  "runtime": {
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5"
   }
 }

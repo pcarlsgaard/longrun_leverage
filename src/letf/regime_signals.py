@@ -3,17 +3,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from .analysis import CASH, load_inputs, matched
+from .analysis import CASH, load_inputs, matched, sha
 from .falsification import (LAGS, PERIODS, load_price_signals, select_returns,
     switching_costs, transitions, evaluate, economic_components, subperiod_index)
 from .signals import level_position, signal_price_return, volatility_position
 from .model import calendar_days
-from .provenance import FLOAT_FORMAT, stable_floats
+from .provenance import FLOAT_FORMAT, source_hashes, stable_floats
 
 SMA = 'UPRO_SMA_TO_SP500'
 
@@ -220,6 +221,18 @@ def run(root):
         data.pipe(stable_floats).to_csv(out/f'regime_signal_{suffix}.csv', index=False, float_format=FLOAT_FORMAT)
     from .regime_signal_report import write_report
     write_report(root, metrics, subs, conditional, pd.DataFrame(agree), ao_note, checks)
+    (out/'regime_signal_manifest.json').write_text(json.dumps({
+        'as_of': config['as_of'],
+        'window': [ix[0].date().isoformat(), ix[-1].date().isoformat()],
+        'comparator_rows_verified': checks,
+        'signal_source': 'PRICE_INDEX',
+        'input_hashes': {rel: sha(root/rel) for rel in (
+            'config.json', 'data/snapshots/portfolio_sma_inputs.zip',
+            'data/snapshots/sma_price_inputs.zip')},
+        'source_hashes': source_hashes(root, __spec__.name),
+        'runtime': {'python': platform.python_version(), 'numpy': np.__version__,
+                    'pandas': pd.__version__},
+    }, indent=2) + '\n')
     print(f'Regime comparison: {len(metrics)} full-history rows, {len(subs)} subperiod rows; '
           f'{ix[0].date()}–{ix[-1].date()}; {checks} prior comparator rows verified.')
 
