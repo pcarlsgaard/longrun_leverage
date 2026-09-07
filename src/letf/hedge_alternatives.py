@@ -55,6 +55,8 @@ TARGET_EXPOSURE = 3.
 MATURITY_YEARS = 2.
 IV_PREMIUM = .03
 OPTION_SPREAD_BPS = 100.
+EXPIRY_MONTHS = (1, 6, 12)
+ROLL_MONTHS = {'january': (1,), 'june': (6,), 'december': (12,), 'nearest_listed': EXPIRY_MONTHS}
 
 UPRO, SSO, TMF = 'UPRO_SPREAD_50BP', 'SSO_SPREAD_50BP', 'TMF_SPREAD_50BP'
 EQUITY, TREASURY = 'SP500_1X', 'LONG_TREASURY_1X'
@@ -285,25 +287,64 @@ def window_table(candidates, windows, annualize):
     return pd.DataFrame(rows)
 
 
-def leaps_grid(spot, daily, ix, dividend, riskfree, premiums=(0., .03, .06, .09)):
-    """Sensitivity of the option family to every choice made building it."""
+def leaps_grid(spot, daily, ix, calendar, dividend, riskfree, premiums=(0., .03, .06, .09)):
+    """Sensitivity of the option family to every choice made building it.
+
+    Strike and budget are swept across the whole usable range, deep in-the-money
+    to out-of-the-money, because the two do very different things: the budget
+    sets how much of the portfolio is at risk and moves returns by percentage
+    points, while the strike trims the shape of the payoff. `total_exposure`
+    adds the safe sleeve to the option delta so a row can be read against a
+    leveraged fund holding the same notional.
+    """
     rows = []
     for premium in premiums:
         vol = implied_volatility_proxy(spot.pct_change().fillna(0.), premium, MATURITY_YEARS)
-        for moneyness in (.7, .8, .9, 1., 1.05, 1.1):
-            for budget in (.3, .4, .5, .6):
+        for moneyness in (.7, .75, .8, .85, .9, .95, 1., 1.05, 1.1):
+            for budget in (.15, .2, .25, .3, .4, .5, .6):
                 for safe in (CASH, TREASURY):
                     rule = LeapsRule(moneyness=moneyness, premium_budget=budget,
                                      maturity_years=MATURITY_YEARS, iv_premium=premium,
-                                     spread_bps=OPTION_SPREAD_BPS)
-                    nav = simulate_leaps_portfolio(spot, daily.loc[ix, safe], dividend,
-                                                   riskfree, vol, rule, ledger=False)
+                                     spread_bps=OPTION_SPREAD_BPS,
+                                     expiry_months=EXPIRY_MONTHS)
+                    nav, exposure, _ = simulate_leaps_portfolio(
+                        spot, daily.loc[ix, safe], dividend, riskfree, vol, rule)
                     returns = nav.pct_change().dropna()
+                    cohorts = cohort_cagrs(nav_path(returns, calendar), 10)
                     rows.append(dict(iv_premium=premium, moneyness=moneyness,
                                      premium_budget=budget, safe_asset=safe,
                                      mean_implied_vol=float(vol.mean()),
+                                     mean_delta_exposure=float(exposure.mean()),
+                                     total_exposure=float(exposure.mean()) + (1 - budget),
                                      cagr=cagr(returns),
-                                     max_drawdown=max_drawdown(returns)))
+                                     max_drawdown=max_drawdown(returns),
+                                     cohort_10y_min_cagr=float(cohorts.min())))
+    return pd.DataFrame(rows)
+
+
+def roll_month_sensitivity(spot, daily, ix, dividend, riskfree, vol,
+                           moneyness=.85, budget=.25, safe=TREASURY):
+    """Does the answer depend on which month you happen to roll in?
+
+    A once-a-year roll means one session's prices set the whole year, so a
+    strategy that only works from a particular month is a calendar artifact
+    rather than a strategy. Listings that far out are sparse enough that the
+    choice is real: rolling every December is a different portfolio from
+    rolling every June.
+    """
+    rows = []
+    for label, months in ROLL_MONTHS.items():
+        rule = LeapsRule(moneyness=moneyness, premium_budget=budget,
+                         maturity_years=MATURITY_YEARS, iv_premium=IV_PREMIUM,
+                         spread_bps=OPTION_SPREAD_BPS, expiry_months=months)
+        nav, _, rolls = simulate_leaps_portfolio(spot, daily.loc[ix, safe], dividend,
+                                                 riskfree, vol, rule)
+        returns = nav.pct_change().dropna()
+        rows.append(dict(roll=label, rolls=int(len(rolls)),
+                         mean_entry_years=float(rolls.entry_years.mean()),
+                         entry_years_spread=float(rolls.entry_years.max()
+                                                  - rolls.entry_years.min()),
+                         cagr=cagr(returns), max_drawdown=max_drawdown(returns)))
     return pd.DataFrame(rows)
 
 
@@ -371,7 +412,11 @@ def run(root: Path):
     concentration = concentration_table(candidates, BENCHMARKS)
     subperiods = window_table(candidates, SUBPERIODS, annualize=True)
     crashes = window_table(candidates, CRASHES, annualize=False)
-    grid = leaps_grid(spot, daily, ix, dividend, riskfree)
+    grid = leaps_grid(spot, daily, ix, calendar, dividend, riskfree)
+    rollmonths = roll_month_sensitivity(spot, daily, ix, dividend, riskfree,
+                                        implied_volatility_proxy(
+                                            spot.pct_change().fillna(0.),
+                                            IV_PREMIUM, MATURITY_YEARS))
     ladder, _ = reset_ladder(daily, ix, calendar, config['funds']['UPRO']['expense'])
     rivals = {name: float(metrics.set_index('series').loc[name, 'cagr']) for name in RIVALS}
     breakeven = breakeven_table(spot, daily, ix, dividend, riskfree, rivals,
@@ -387,17 +432,19 @@ def run(root: Path):
                'hedge_alternatives_leaps_grid.csv': grid,
                'hedge_alternatives_breakeven.csv': breakeven,
                'hedge_alternatives_rolls.csv': rolls,
-               'hedge_alternatives_reset_ladder.csv': ladder}
+               'hedge_alternatives_reset_ladder.csv': ladder,
+               'hedge_alternatives_roll_months.csv': rollmonths}
     for name, frame in outputs.items():
         frame.pipe(stable_floats).to_csv(reports / name, index=False, float_format=FLOAT_FORMAT)
 
     report(reports, metrics, concentration, subperiods, crashes, grid, breakeven,
-           ladder, ix, rivals)
+           ladder, rollmonths, ix, rivals)
     (reports / 'hedge_alternatives_manifest.json').write_text(json.dumps({
         'window': [ix[0].date().isoformat(), ix[-1].date().isoformat()],
         'observations': int(len(ix)), 'sma_days': SMA_DAYS, 'lag': LAG,
         'spread_bps': SPREAD_BPS, 'switch_cost_bps': SWITCH_COST_BPS,
-        'option_spread_bps': OPTION_SPREAD_BPS, 'iv_premium': IV_PREMIUM, 'maturity_years': MATURITY_YEARS,
+        'option_spread_bps': OPTION_SPREAD_BPS, 'iv_premium': IV_PREMIUM,
+        'maturity_years': MATURITY_YEARS, 'expiry_months': list(EXPIRY_MONTHS),
         'target_exposure': TARGET_EXPOSURE, 'leaps_grid_rows': int(len(grid)),
         'option_prices': 'modelled with Black-Scholes on an assumed implied volatility; '
                          'this repository holds no option price history',
@@ -436,7 +483,7 @@ def _table(frame, columns, formats, index=None):
 
 
 def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven,
-           ladder, ix, rivals):
+           ladder, rollmonths, ix, rivals):
     """Write the narrative from the numbers, never alongside them."""
     m = metrics.set_index('series')
     sma = m.loc['UPRO_SMA_TO_SP500']
@@ -464,6 +511,21 @@ def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven
     most_wins = max(pd.Series([row['best'] for row in best_worst]).value_counts())
     mix_crash = leveraged.loc['UPRO60_TMF40']
     always_crash = leveraged.loc['UPRO_ALWAYS_3X']
+
+    base = grid[(grid.iv_premium == IV_PREMIUM) & (grid.safe_asset == TREASURY)]
+    index_row = m.loc['SP500_1X']
+    beats_index = base[(base.cagr > index_row.cagr) & (base.max_drawdown > index_row.max_drawdown)]
+    bands = []
+    for low, high in ((1.5, 2.), (2., 2.5), (2.5, 3.), (3., 9.)):
+        cell = base[(base.total_exposure >= low) & (base.total_exposure < high)]
+        if len(cell):
+            best = cell.loc[cell.cohort_10y_min_cagr.idxmax()]
+            bands.append(dict(band=f'{low:.1f}-{high:.1f}x', moneyness=best.moneyness,
+                              premium_budget=best.premium_budget,
+                              total_exposure=best.total_exposure, cagr=best.cagr,
+                              max_drawdown=best.max_drawdown,
+                              cohort_10y_min_cagr=best.cohort_10y_min_cagr))
+    bands = pd.DataFrame(bands)
 
     rungs = ladder[ladder.leverage == 3.].set_index('reset')
     survivors = rungs[~rungs.wiped_out]
@@ -648,6 +710,57 @@ The modelled premium is still doing work in that {best_option:.2%}. What this se
 establishes without any model is narrower and worth stating on its own: reset
 frequency matters, it matters by percentage points a year, and the frequency
 that would capture most of it cannot be held with borrowed money.
+
+## Which option, and how much of it
+
+Strike and budget do different jobs. The budget decides how much of the
+portfolio is at risk and moves returns by percentage points a year; the strike
+trims the shape of what is bought. Size the premium first.
+
+**{len(beats_index)} of the {len(base)} cells beat the unleveraged index on return and
+drawdown at once** ({index_row.cagr:.2%} at {index_row.max_drawdown:.1%}), which is a region
+rather than a knife-edge. The best cell in each exposure band, ranked by worst
+ten-year outcome:
+
+{_table(bands, ['band', 'moneyness', 'premium_budget', 'total_exposure', 'cagr',
+                'max_drawdown', 'cohort_10y_min_cagr'],
+        {'moneyness': '.2f', 'premium_budget': '.0%', 'total_exposure': '.2f',
+         'cagr': '.2%', 'max_drawdown': '.1%', 'cohort_10y_min_cagr': '.2%'})}
+
+`total_exposure` adds the safe sleeve to the option delta, so it is comparable
+to a leveraged fund holding the same notional. **The structure does not carry to
+3x.** Past roughly 2.2x the worst ten-year cohort turns negative and the
+2000-2002 loss returns to the level the leveraged funds suffered. What this buys
+is about 2x held well, not 3x held safely.
+
+## Rolling it in practice
+
+Two years out an index option is not available on an arbitrary date. Only a few
+expiries are listed that far ahead — for SPY today, January, June and December —
+so the roll must land on one of them and the maturity actually bought drifts
+around the target. The simulation uses that calendar, which costs a few tenths
+of a percent a year against the fixed-maturity fiction it replaced. It settles
+into one trade a year, every December, into the December listing two years out.
+
+A once-a-year roll means a single session's prices set the whole year, so the
+choice of month has to be shown not to matter:
+
+{_table(rollmonths, ['roll', 'rolls', 'mean_entry_years', 'entry_years_spread',
+                     'cagr', 'max_drawdown'],
+        {'mean_entry_years': '.2f', 'entry_years_spread': '.2f', 'cagr': '.2%',
+         'max_drawdown': '.1%'})}
+
+The spread across roll months is small enough that this is a strategy rather
+than a calendar artifact.
+
+Three implementation points the numbers here do not capture. Use a
+**European, cash-settled** index option rather than an American one on an ETF:
+a deep in-the-money American call is liable to early assignment around
+ex-dividend dates, which would break the roll schedule this depends on. Bid-ask
+on a two-year contract is wide, and the {OPTION_SPREAD_BPS:.0f} bp of premium charged here
+each way may be optimistic. And equity skew makes in-the-money calls dearer than
+a single volatility charges, which lands hardest on exactly the strikes the
+table above prefers.
 
 ## Re-levering defeats the bounded loss
 

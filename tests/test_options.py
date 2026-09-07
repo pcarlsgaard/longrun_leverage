@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 
 from letf.options import (LeapsRule, black_scholes_call, break_even_iv_premium, call_delta,
-                          implied_volatility_proxy, simulate_leaps_portfolio,
-                          trailing_dividend_yield, trailing_riskfree)
+                          choose_expiry, implied_volatility_proxy, listed_expiries,
+                          simulate_leaps_portfolio, trailing_dividend_yield,
+                          trailing_riskfree)
 
 
 class BlackScholesTests(unittest.TestCase):
@@ -92,6 +93,41 @@ class InputProxyTests(unittest.TestCase):
             implied_volatility_proxy(returns, .03, lag=-1)
 
 
+class ExpiryCalendarTests(unittest.TestCase):
+    """Two years out an index option exists only on a few listed dates."""
+
+    def test_returns_third_fridays_of_the_named_months(self):
+        dates = listed_expiries('2026-01-01', '2026-12-31', (1, 6, 12))
+        self.assertEqual([str(d.date()) for d in dates[:3]],
+                         ['2026-01-16', '2026-06-19', '2026-12-18'])
+        self.assertTrue(all(d.dayofweek == 4 for d in dates))
+        self.assertTrue(all(15 <= d.day <= 21 for d in dates))
+
+    def test_covers_beyond_the_end_so_long_dates_can_be_bought(self):
+        dates = listed_expiries('2026-01-01', '2026-06-30', (12,))
+        self.assertGreaterEqual(dates[-1].year, 2027)
+
+    def test_rejects_an_empty_month_set(self):
+        with self.assertRaises(ValueError):
+            listed_expiries('2026-01-01', '2026-12-31', ())
+
+    def test_chooses_the_listing_nearest_the_target(self):
+        dates = listed_expiries('2026-01-01', '2030-12-31', (1, 6, 12))
+        picked = choose_expiry(pd.Timestamp('2026-09-07'), dates, 2., 1.)
+        # Two years out is 2028-09; June and December 2028 straddle it.
+        self.assertIn(str(picked.date()), ('2028-06-16', '2028-12-15'))
+        self.assertLess(abs((picked - pd.Timestamp('2028-09-07')).days), 100)
+
+    def test_never_returns_something_shorter_than_the_roll_horizon(self):
+        dates = listed_expiries('2026-01-01', '2030-12-31', (1, 6, 12))
+        picked = choose_expiry(pd.Timestamp('2026-09-07'), dates, 2., 1.5)
+        self.assertGreater((picked - pd.Timestamp('2026-09-07')).days, 1.5 * 365.25)
+
+    def test_returns_none_when_nothing_listed_is_long_enough(self):
+        dates = listed_expiries('2026-01-01', '2026-12-31', (1,))
+        self.assertIsNone(choose_expiry(pd.Timestamp('2026-09-07'), dates[:1], 2., 1.))
+
+
 class SimulatorTests(unittest.TestCase):
     def setUp(self):
         self.closes = pd.bdate_range('2000-01-03', periods=1600)
@@ -164,6 +200,24 @@ class SimulatorTests(unittest.TestCase):
         _, _, scaled = simulate_leaps_portfolio(self.price * 3, self.safe, self.q, self.r,
                                                 self.vol, LeapsRule(premium_budget=.4))
         self.assertEqual(len(scaled), len(slow))
+
+    def test_every_position_is_bought_on_a_listed_expiry(self):
+        _, _, rolls = self.simulate(premium_budget=.4, expiry_months=(1, 6, 12))
+        self.assertTrue(set(rolls.expiry.dt.month) <= {1, 6, 12})
+        self.assertTrue((rolls.expiry.dt.dayofweek == 4).all())
+
+    def test_sparse_listings_make_the_maturity_bought_drift(self):
+        """A single yearly listing cannot supply an exact two-year contract."""
+        _, _, dense = self.simulate(premium_budget=.4, expiry_months=(1, 6, 12))
+        _, _, sparse = self.simulate(premium_budget=.4, expiry_months=(12,))
+        self.assertGreater(sparse.entry_years.std(), 0.)
+        self.assertLessEqual(dense.entry_years.std(), sparse.entry_years.std())
+        self.assertTrue((sparse.entry_years >= 1.).all())
+
+    def test_rejects_impossible_expiry_months(self):
+        for months in ((), (0,), (13,)):
+            with self.assertRaises(ValueError):
+                LeapsRule(premium_budget=.4, expiry_months=months)
 
     def test_scaling_the_index_leaves_returns_unchanged(self):
         base, _, _ = self.simulate(premium_budget=.4)

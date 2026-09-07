@@ -73,6 +73,7 @@ class LeapsRule:
     premium_budget: float | None = None
     iv_premium: float = .03
     spread_bps: float = 100.
+    expiry_months: tuple = (1, 6, 12)
 
     def __post_init__(self):
         if not 0 < self.moneyness <= 2:
@@ -87,6 +88,43 @@ class LeapsRule:
             raise ValueError('Implausible option spread')
         if self.premium_budget is not None and not 0 < self.premium_budget <= 1:
             raise ValueError('Premium budget must be a fraction of wealth')
+        if not self.expiry_months or not all(1 <= m <= 12 for m in self.expiry_months):
+            raise ValueError('Expiry months must be calendar months')
+
+
+def listed_expiries(start, end, months=(1, 6, 12)) -> pd.DatetimeIndex:
+    """Third Fridays of the months that carry long-dated listings.
+
+    Two years out, an index option is not available on an arbitrary date. Only
+    a few expiries are listed that far ahead — for SPY today, January, June and
+    December — so a roll must land on one of them and the maturity actually
+    bought drifts around the target instead of matching it. Modelling a fixed
+    two-year maturity quietly assumes a contract that is not offered.
+    """
+    if not months:
+        raise ValueError('No expiry months given')
+    years = range(pd.Timestamp(start).year, pd.Timestamp(end).year + 2)
+    dates = []
+    for year in years:
+        for month in sorted(months):
+            first = pd.Timestamp(year=year, month=month, day=1)
+            # First Friday, then two weeks on.
+            friday = first + pd.Timedelta(days=(4 - first.dayofweek) % 7)
+            dates.append(friday + pd.Timedelta(days=14))
+    return pd.DatetimeIndex(sorted(dates))
+
+
+def choose_expiry(today, expiries, target_years, minimum_years):
+    """The listed expiry closest to the target, never shorter than `minimum_years`.
+
+    Returns None when nothing listed is long enough, which ends the simulation
+    rather than silently buying a contract that does not exist.
+    """
+    horizon = expiries[expiries >= today + pd.Timedelta(days=minimum_years * YEAR)]
+    if not len(horizon):
+        return None
+    wanted = today + pd.Timedelta(days=target_years * YEAR)
+    return horizon[np.abs((horizon - wanted).days.to_numpy()).argmin()]
 
 
 def black_scholes_call(spot, strike, rate, dividend, vol, years):
@@ -243,18 +281,28 @@ def simulate_leaps_portfolio(price: pd.Series, safe_returns: pd.Series, dividend
     spread = rule.spread_bps / 10000
     n = len(closes)
 
-    # Roll dates depend only on the calendar and the rule, never on wealth: the
-    # position is rolled once `maturity - roll_at` years have elapsed since the
-    # last roll. Precomputing them lets each holding period be valued as one
-    # vector operation instead of a session-by-session loop.
-    hold = (rule.maturity_years - rule.roll_at_years) * YEAR
-    starts, i = [0], 0
+    # Roll dates depend only on the calendar and the rule, never on wealth, so
+    # each holding period can be valued as one vector operation. What sets them
+    # is the listed-expiry calendar: the position is rolled once the contract
+    # held has `roll_at_years` left, and the replacement is whichever listed
+    # expiry sits closest to the target maturity. Because listings are sparse
+    # that far out, the maturity actually bought drifts around the target and
+    # the roll dates are not evenly spaced.
+    expiries = listed_expiries(closes[0], closes[-1], rule.expiry_months)
+    starts, chosen, i = [], [], 0
     while True:
-        following = np.flatnonzero(days >= days[i] + hold)
+        expiry = choose_expiry(closes[i], expiries, rule.maturity_years, rule.roll_at_years)
+        if expiry is None:
+            break
+        starts.append(i)
+        chosen.append(expiry)
+        threshold = (expiry - pd.Timedelta(days=rule.roll_at_years * YEAR) - closes[0]).days
+        following = np.flatnonzero(days > max(threshold, days[i]))
         if not len(following):
             break
         i = int(following[0])
-        starts.append(i)
+    if not starts:
+        raise ValueError('No listed expiry is long enough to open a position')
 
     navs = np.empty(n)
     exposures = np.empty(n)
@@ -266,12 +314,19 @@ def simulate_leaps_portfolio(price: pd.Series, safe_returns: pd.Series, dividend
         # each segment writes from `begin + 1` and the roll session is written
         # by the segment that held it.
         last = starts[k + 1] if k + 1 < len(starts) else n - 1
+        # Strike listings are also discrete, but that is left unmodelled on
+        # purpose: at long dates the grid is a fraction of a percent of spot,
+        # which is invisible beside the volatility assumption, and a step
+        # expressed as a fraction of spot never binds on a round moneyness at
+        # all. A parameter that looks modelled but is not is worse than its
+        # absence.
         strike = rule.moneyness * spot[begin]
-        expiry = days[begin] + rule.maturity_years * YEAR
+        expiry = float((chosen[k] - closes[0]).days)
+        entry_years = (expiry - days[begin]) / YEAR
         premium = float(black_scholes_call(spot[begin], strike, r[begin], q[begin],
-                                           sigma[begin], rule.maturity_years))
+                                           sigma[begin], entry_years))
         entry_delta = float(call_delta(spot[begin], strike, r[begin], q[begin],
-                                       sigma[begin], rule.maturity_years))
+                                       sigma[begin], entry_years))
         if premium <= 0 or entry_delta <= 0:
             raise ValueError('Degenerate option at roll; check volatility inputs')
         afford = wealth / (premium * (1 + spread))
@@ -285,7 +340,9 @@ def simulate_leaps_portfolio(price: pd.Series, safe_returns: pd.Series, dividend
             raise ValueError('Roll spent more than available wealth')
         bills = max(bills, 0.)
         if ledger:
-            rolls.append(dict(close=closes[begin], capped=capped, strike=strike,
+            rolls.append(dict(close=closes[begin], expiry=chosen[k], capped=capped,
+                              strike=strike, entry_years=entry_years,
+                              entry_moneyness=strike / spot[begin],
                               contracts=contracts, spot=spot[begin], wealth=wealth,
                               premium=premium, safe_weight=bills / wealth,
                               implied_vol=sigma[begin], entry_delta=entry_delta))
