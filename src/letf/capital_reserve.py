@@ -14,7 +14,7 @@ from .signals import level_position
 from .model import calendar_days
 from .cohorts import cohort_frame, nav_path
 from .reserve import ReserveRule, simulate_reserve, full_cycle_accounting, tagged_deployment_value
-from .provenance import FLOAT_FORMAT, source_hashes
+from .provenance import FLOAT_FORMAT, source_hashes, stable_floats
 
 PRIMARY_RULES = {
     'NO_RESERVE': ReserveRule(),
@@ -305,10 +305,10 @@ def run(root):
     frames=dict(metrics=metrics,sensitivity=sensitivities,stress_cycles=cycles,deployments=deployments,
                 costs=costs,exposure=exposures,rolling_summary=rolls,matched_controls=matched_rows,bull_episodes=bulls,subperiods=subperiods)
     for label,rows in frames.items():
-        pd.DataFrame(rows).to_csv(reports/f'capital_reserve_{label}.csv',index=False,float_format=FLOAT_FORMAT)
+        pd.DataFrame(rows).pipe(stable_floats).to_csv(reports/f'capital_reserve_{label}.csv',index=False,float_format=FLOAT_FORMAT)
     for lag in (1,2):
         for field in ('wealth','reserve_wealth','reserve_weight','effective_equity_exposure','return_net'):
-            pd.DataFrame({name:a[field] for (name,l),a in saved.items() if l==lag}).to_csv(
+            pd.DataFrame({name:a[field] for (name,l),a in saved.items() if l==lag}).pipe(stable_floats).to_csv(
                 processed/f'capital_reserve_{field}_lag{lag}.csv',index_label='date',float_format=FLOAT_FORMAT)
     manifest=dict(as_of=config['as_of'],entry_close=str(calendar[calendar.get_loc(common[0])-1].date()),
         input_hashes={rel:sha(root/rel) for rel in ('config.json','data/processed/daily_returns.csv',

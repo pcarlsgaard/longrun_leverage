@@ -18,7 +18,7 @@ from .model import calendar_days
 # Re-exported: signal construction lives in letf.signals, cost mechanics in letf.strategy.
 from .signals import LAGS, discrete_exposure, level_position, sma_position, volatility_position
 from .strategy import select_returns, switching_costs, transitions
-from .provenance import FLOAT_FORMAT
+from .provenance import FLOAT_FORMAT, stable_floats
 
 COSTS = (0, 10, 25, 50)
 PERIODS = {'1987_1999': ('1987-01-01', '1999-12-31'),
@@ -109,6 +109,11 @@ def attribution(components, position, cash, leverage, off_kind):
                      'tbill_log_earned': bill, 'path_compounding_improvement_log': path_saved,
                      'financing_savings_log': funding_saved, 'expense_savings_log': fee_saved,
                      'explained_log_advantage': explained, 'identity_residual': actual-explained})
+        # The decomposition is an exact identity, so this is a live check on the
+        # accounting rather than an estimate. Printed residuals are snapped to
+        # zero on write; the tolerance has to live here.
+        if abs(actual-explained) > 1e-9:
+            raise ValueError(f'Attribution identity broken by {actual-explained:.3g}')
     return rows
 
 
@@ -244,9 +249,9 @@ def run(root, offline=True):
         base.loc[i,'terminal_wealth_ratio_vs_primary'] = w/w1
         base.loc[i,'benefit_terminal_wealth_retained_pct'] = 100*(w-wa)/(w1-wa) if abs(w1-wa)>1e-12 else np.nan
         base.loc[i,'benefit_log_wealth_retained_pct'] = 100*np.log(w/wa)/np.log(w1/wa) if abs(w1-wa)>1e-12 else np.nan
-    grid.to_csv(reports/'sma_falsification_grid.csv',index=False,float_format=FLOAT_FORMAT)
-    base[base.switch_cost_bps==0].to_csv(reports/'sma_execution_lag.csv',index=False,float_format=FLOAT_FORMAT)
-    base.to_csv(reports/'sma_switching_costs.csv',index=False,float_format=FLOAT_FORMAT)
+    grid.pipe(stable_floats).to_csv(reports/'sma_falsification_grid.csv',index=False,float_format=FLOAT_FORMAT)
+    base[base.switch_cost_bps==0].pipe(stable_floats).to_csv(reports/'sma_execution_lag.csv',index=False,float_format=FLOAT_FORMAT)
+    base.pipe(stable_floats).to_csv(reports/'sma_switching_costs.csv',index=False,float_format=FLOAT_FORMAT)
     subrows=[]
     for fund,u in FAMILIES.items():
         names=[f'{u}_1X',f'{fund}_ALWAYS',f'{fund}_SMA_TO_'+('SP500' if u=='SP500' else 'NASDAQ'),f'{fund}_SMA_TO_TBILL']
@@ -262,7 +267,7 @@ def run(root, offline=True):
                     m['ending_wealth_ratio_vs_1x']=(1+r.loc[si]).prod()/(1+daily.loc[si,f'{u}_1X']).prod()
                     subrows.append(m)
     sub=pd.DataFrame(subrows)
-    sub.to_csv(reports/'sma_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
+    sub.pipe(stable_floats).to_csv(reports/'sma_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
     print('Signal source and volatility comparisons',flush=True)
     signalrows=[]
     for fund,u in FAMILIES.items():
@@ -292,7 +297,7 @@ def run(root, offline=True):
                             differing_switch_dates=int(tp.ne(tq).sum()),
                             price_switch_count=int(tp.sum()),total_return_switch_count=int(tq.sum()),
                             switch_count_difference=int(tp.sum()-tq.sum()))))
-    pd.DataFrame(signalrows).to_csv(reports/'sma_signal_source_comparison.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(signalrows).pipe(stable_floats).to_csv(reports/'sma_signal_source_comparison.csv',index=False,float_format=FLOAT_FORMAT)
     volrows=[]
     state_vol={}
     days=calendar_days(ix,calendar[calendar.get_loc(ix[0])-1])
@@ -316,7 +321,7 @@ def run(root, offline=True):
                 annualized_approx_path_drag=252*comp.approx_path_drag[mask].mean(),
                 annualized_exact_path_drag_log=252*comp.path_drag_log[mask].mean(),
                 annualized_financing_drag_log=252*comp.financing_drag_log[mask].mean()))
-    pd.DataFrame(volrows).to_csv(reports/'sma_volatility_state_analysis.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(volrows).pipe(stable_floats).to_csv(reports/'sma_volatility_state_analysis.csv',index=False,float_format=FLOAT_FORMAT)
     volmetrics=[]
     for lag in LAGS:
         for binary in (False,True):
@@ -337,7 +342,7 @@ def run(root, offline=True):
                 p=None if name=='SP500_1X' else primary_states[(name,lag,cost)]
                 exposure=1. if p is None else float((p*3+(1-p)*(0 if name.endswith('TBILL') else 1)).mean())
                 volmetrics.append(record(r,p,dict(series=name,lag=f'LAG{lag}',switch_cost_bps=cost,average_equity_exposure=exposure)))
-    pd.DataFrame(volmetrics).to_csv(reports/'volatility_target_comparison.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(volmetrics).pipe(stable_floats).to_csv(reports/'volatility_target_comparison.csv',index=False,float_format=FLOAT_FORMAT)
     attr=[]
     for fund in ('SSO','UPRO'):
         spec=config['funds'][fund]
@@ -346,7 +351,7 @@ def run(root, offline=True):
             for kind,label in [('1x','SP500'),('tbill','TBILL')]:
                 for row in attribution(c,positions[('SP500',200,lag)].loc[ix],cash,spec['leverage'],kind):
                     attr.append(dict(series=f'{fund}_SMA_TO_{label}',lag=f'LAG{lag}',**row))
-    pd.DataFrame(attr).to_csv(reports/'sma_attribution.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(attr).pipe(stable_floats).to_csv(reports/'sma_attribution.csv',index=False,float_format=FLOAT_FORMAT)
     stress,delay=[] ,[]
     raw=positions[('SP500',200,1)].shift(-1)
     for fund in ('SSO','UPRO'):
@@ -373,11 +378,11 @@ def run(root, offline=True):
         ref=immediate.loc[(row.series,row.event)]
         st.loc[i,'episode_end_wealth_difference_vs_lag1']=row.episode_end_value-ref.episode_end_value
         st.loc[i,'additional_episode_drawdown_vs_lag1']=ref.episode_max_drawdown-row.episode_max_drawdown
-    st.to_csv(reports/'sma_stress_event_detail.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame(delay).to_csv(reports/'sma_stress_delay_transitions.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame({f'{name}__LAG{lag}__COST{cost}':r for (name,lag,cost),r in primary.items()}).to_csv(
+    st.pipe(stable_floats).to_csv(reports/'sma_stress_event_detail.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(delay).pipe(stable_floats).to_csv(reports/'sma_stress_delay_transitions.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame({f'{name}__LAG{lag}__COST{cost}':r for (name,lag,cost),r in primary.items()}).pipe(stable_floats).to_csv(
         processed/'sma_falsification_daily_returns.csv',index_label='date',float_format=FLOAT_FORMAT)
-    pd.DataFrame({f'{name}__LAG{lag}':p for (name,lag,cost),p in primary_states.items() if cost==0}).to_csv(
+    pd.DataFrame({f'{name}__LAG{lag}':p for (name,lag,cost),p in primary_states.items() if cost==0}).pipe(stable_floats).to_csv(
         processed/'sma_falsification_positions.csv',index_label='date',float_format=FLOAT_FORMAT)
     manifest={'as_of':config['as_of'],'entry_close':str(calendar[calendar.get_loc(ix[0])-1].date()),
         'input_sha256':{str(p.relative_to(root)):sha(p) for p in [root/'config.json',root/'data/processed/daily_returns.csv',

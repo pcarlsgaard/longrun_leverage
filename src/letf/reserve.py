@@ -190,13 +190,19 @@ def full_cycle_accounting(no_pre, reserve_pre, no_after, reserve_after):
     cost = no_pre-reserve_pre
     benefit = reserve_after-reserve_pre*growth
     carried = cost*growth
+    residual = benefit-carried-(reserve_after-no_after)
+    # The attribution is an exact identity, so this is a live check on the
+    # accounting. Printed residuals are snapped to zero on write, which is why
+    # the tolerance has to live here rather than being read off the CSV.
+    if abs(residual) > 1e-9:
+        raise ValueError(f'Reserve attribution identity broken by {residual:.3g}')
     return dict(pre_drawdown_opportunity_cost=cost,
                 carried_opportunity_cost=carried,
                 incremental_post_drawdown_wealth=benefit,
                 full_cycle_advantage=reserve_after-no_after,
                 reserve_payback_ratio=benefit/carried if carried > 1e-12 else np.nan,
                 recovery_multiplier=reserve_after/no_after,
-                attribution_residual=benefit-carried-(reserve_after-no_after))
+                attribution_residual=residual)
 
 
 def tagged_deployment_value(ledger, trade, end_row):

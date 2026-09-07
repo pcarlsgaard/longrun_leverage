@@ -13,7 +13,7 @@ from .falsification import (LAGS, PERIODS, load_price_signals, select_returns,
     switching_costs, transitions, evaluate, economic_components, subperiod_index)
 from .signals import level_position, signal_price_return, volatility_position
 from .model import calendar_days
-from .provenance import FLOAT_FORMAT
+from .provenance import FLOAT_FORMAT, stable_floats
 
 SMA = 'UPRO_SMA_TO_SP500'
 
@@ -217,7 +217,7 @@ def run(root):
     out = root/'reports'
     for suffix, data in [('metrics',metrics),('subperiods',subs),('states',conditional),
                          ('agreement',pd.DataFrame(agree))]:
-        data.to_csv(out/f'regime_signal_{suffix}.csv', index=False, float_format=FLOAT_FORMAT)
+        data.pipe(stable_floats).to_csv(out/f'regime_signal_{suffix}.csv', index=False, float_format=FLOAT_FORMAT)
     from .regime_signal_report import write_report
     write_report(root, metrics, subs, conditional, pd.DataFrame(agree), ao_note, checks)
     print(f'Regime comparison: {len(metrics)} full-history rows, {len(subs)} subperiod rows; '

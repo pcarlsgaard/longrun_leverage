@@ -17,7 +17,7 @@ from .diagnostics import edge_concentration
 from .model import calendar_days
 from .signals import signal_price_return as price_return, volatility_position as price_volatility_position
 from .regime_signals import archived_prices, matched_control, signal_features
-from .provenance import FLOAT_FORMAT
+from .provenance import FLOAT_FORMAT, stable_floats
 
 SMA_LENGTHS = (150, 200, 250)
 SPREADS = (0, 50, 100)
@@ -120,7 +120,7 @@ def run(root: Path):
                                 primary[(name,lag,cost)] = net
                                 primary_states[(name,lag,cost)] = state
     grid = pd.DataFrame(grid_rows)
-    grid.to_csv(reports/'price_signal_revision_sma_grid.csv', index=False, float_format=FLOAT_FORMAT)
+    grid.pipe(stable_floats).to_csv(reports/'price_signal_revision_sma_grid.csv', index=False, float_format=FLOAT_FORMAT)
 
     # Historical subperiods using live state across boundaries.
     subs=[]
@@ -137,7 +137,7 @@ def run(root: Path):
                     m=strategy_metrics(r.loc[si],cash,calendar,p.loc[si] if p is not None else None,False)
                     subs.append(dict(series=name,family=under,lag=f'LAG{lag}',period=period,
                                      signal_source='PRICE_INDEX',**m))
-    pd.DataFrame(subs).to_csv(reports/'price_signal_revision_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(subs).pipe(stable_floats).to_csv(reports/'price_signal_revision_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Price-return volatility state diagnostics and price-volatility targeting.
     volstates=[]
@@ -154,7 +154,7 @@ def run(root: Path):
                 annualized_upro_log_return=252*np.log1p(daily.loc[ix,'UPRO_BASE'][mask]).mean(),
                 annualized_sp500_total_return_log=252*np.log1p(daily.loc[ix,'SP500_1X'][mask]).mean(),
                 annualized_exact_path_drag_log=252*comp.path_drag_log[mask].mean()))
-    pd.DataFrame(volstates).to_csv(reports/'price_signal_revision_volatility_states.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(volstates).pipe(stable_floats).to_csv(reports/'price_signal_revision_volatility_states.csv',index=False,float_format=FLOAT_FORMAT)
 
     volrows=[]
     for lag in LAGS:
@@ -170,7 +170,7 @@ def run(root: Path):
                                     signal_source='PRICE_RETURN',strategy_return_source='TOTAL_RETURN',
                                     average_equity_exposure=p.mean(),fraction_1x=p.eq(1).mean(),
                                     fraction_2x=p.eq(2).mean(),fraction_3x=p.eq(3).mean(),**m))
-    pd.DataFrame(volrows).to_csv(reports/'price_signal_revision_volatility_targets.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(volrows).pipe(stable_floats).to_csv(reports/'price_signal_revision_volatility_targets.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Alternative regime signals, all driven by price/index inputs.
     sp_price, median_price, ao_note = archived_prices(root,config,calendar)
@@ -202,9 +202,9 @@ def run(root: Path):
                     signal_price_volatility=pr.std(ddof=1)*np.sqrt(252),
                     sp500_total_return_log=252*np.log1p(daily.loc[ix,'SP500_1X'][mask]).mean(),
                     upro_total_return_log=252*np.log1p(daily.loc[ix,'UPRO_BASE'][mask]).mean()))
-    pd.DataFrame(alt_rows).to_csv(reports/'price_signal_revision_regime_metrics.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame(alt_sub).to_csv(reports/'price_signal_revision_regime_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame(alt_states).to_csv(reports/'price_signal_revision_regime_states.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(alt_rows).pipe(stable_floats).to_csv(reports/'price_signal_revision_regime_metrics.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(alt_sub).pipe(stable_floats).to_csv(reports/'price_signal_revision_regime_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(alt_states).pipe(stable_floats).to_csv(reports/'price_signal_revision_regime_states.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Attribution uses price-only state but actual total-return investment economics.
     attrs=[]
@@ -216,8 +216,8 @@ def run(root: Path):
             for kind,label in [('1x','SP500'),('tbill','TBILL')]:
                 for row in attribution(c,p,cash,spec['leverage'],kind):
                     attrs.append(dict(series=f'{fund}_SMA_TO_{label}',lag=f'LAG{lag}',signal_source='PRICE_INDEX',**row))
-    pd.DataFrame(attrs).to_csv(reports/'price_signal_revision_attribution.csv',index=False,float_format=FLOAT_FORMAT)
-    summary_table(grid, volrows, alt_rows).to_csv(
+    pd.DataFrame(attrs).pipe(stable_floats).to_csv(reports/'price_signal_revision_attribution.csv',index=False,float_format=FLOAT_FORMAT)
+    summary_table(grid, volrows, alt_rows).pipe(stable_floats).to_csv(
         reports/'price_signal_revision_summary.csv', index=False, float_format=FLOAT_FORMAT)
 
     # Before/after audit for canonical UPRO -> SP500 rule and stress timing.
@@ -243,8 +243,8 @@ def run(root: Path):
                 legacy_max_drawdown=ro['episode_max_drawdown'],revised_max_drawdown=rn['episode_max_drawdown'],
                 legacy_episode_end_value=ro['episode_end_value'],revised_episode_end_value=rn['episode_end_value']))
     audit=pd.DataFrame(audit); stress=pd.DataFrame(stress)
-    audit.to_csv(reports/'price_signal_revision_audit.csv',index=False,float_format=FLOAT_FORMAT)
-    stress.to_csv(reports/'price_signal_revision_stress_audit.csv',index=False,float_format=FLOAT_FORMAT)
+    audit.pipe(stable_floats).to_csv(reports/'price_signal_revision_audit.csv',index=False,float_format=FLOAT_FORMAT)
+    stress.pipe(stable_floats).to_csv(reports/'price_signal_revision_stress_audit.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Compact interpretation report.
     l1=audit[audit.lag.eq('LAG1')].set_index('source'); l2=audit[audit.lag.eq('LAG2')].set_index('source')

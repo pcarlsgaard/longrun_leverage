@@ -8,7 +8,7 @@ from .falsification import load_price_signals
 from .signals import level_position
 from .capital_reserve import PRIMARY_RULES
 from .reserve import simulate_reserve
-from .provenance import FLOAT_FORMAT, source_hashes
+from .provenance import FLOAT_FORMAT, source_hashes, stable_floats
 
 
 def run(root):
@@ -47,7 +47,7 @@ def run(root):
                                 horizon_years=y,entry_close=entry,exit_close=calendar[j],
                                 multiple=value,cagr=value**(365.25/(calendar[j]-entry).days)-1))
     f=pd.DataFrame(rows)
-    f.to_csv(root/'data/processed/capital_reserve_fresh_cohorts.csv',index=False,float_format=FLOAT_FORMAT)
+    f.pipe(stable_floats).to_csv(root/'data/processed/capital_reserve_fresh_cohorts.csv',index=False,float_format=FLOAT_FORMAT)
     return summarize(root,f)
 
 
@@ -66,7 +66,7 @@ def summarize(root,f):
         max_ratio_vs_no_reserve=('ratio_vs_no_reserve','max'),
         fraction_outperforming_no_reserve=('outperformed_no_reserve','mean')).reset_index()
     result['cohort_kind']='fresh_investor_reset'
-    result.to_csv(root/'reports/capital_reserve_fresh_rolling_summary.csv',index=False,float_format=FLOAT_FORMAT)
+    result.pipe(stable_floats).to_csv(root/'reports/capital_reserve_fresh_rolling_summary.csv',index=False,float_format=FLOAT_FORMAT)
     manifest=dict(cohort_kind='fresh_investor_reset',cost_bps=[0,25],lags=[1,2],
         funds=['UPRO','SSO'],horizons=[20,30],cohort_rows=len(f),
         summary_sha256=sha(root/'reports/capital_reserve_fresh_rolling_summary.csv'),

@@ -36,15 +36,26 @@ was carried out. What each finding now maps to:
 | C9 manifest churn | `letf/provenance.py` hashes the real import graph, read statically from source. |
 | C10 untested modules | `tests/test_cohorts.py`, `tests/test_null_model.py`, `tests/test_signals_strategy.py`. |
 | C11 slow reserve loop | Unchanged. It is the dominant CI cost but it is correct, and rewriting it would risk the numbers for a runtime gain. |
-| C12 output precision | `FLOAT_FORMAT = '%.10g'`, defined once. |
+| C12 output precision | `FLOAT_FORMAT = '%.10g'`, defined once — and see below, because that alone was not enough. |
 
-Two defects were found *during* the remediation and are worth recording because
-neither would have been caught by review alone: `cohorts.nav_path` silently
-produced a path ending before it started when handed a restricted window
-instead of the full calendar (now raises), and the first version of the
-permutation null could silently return a draw with fewer switches than the real
-rule when two same-state episodes merged (replaced with a construction that
-cannot).
+Three defects were found *during* the remediation, none of which review alone
+would have caught:
+
+- `cohorts.nav_path` silently produced a path ending before it started when
+  handed a restricted window instead of the full calendar. Now raises.
+- The first version of the permutation null could silently return a draw with
+  fewer switches than the real rule, when reordering made two same-state
+  episodes adjacent and they merged. Replaced with a construction that cannot.
+- **C12 was diagnosed incompletely.** Cutting output precision to `%.10g` is
+  necessary but not sufficient, and the CI gate on a different Python/numpy
+  build is what proved it: `%g` prints its significant digits whatever the
+  exponent, so a quantity that is algebraically zero prints as
+  `-7.993605777e-14` on one platform and `-8.348877145e-14` on another — no
+  agreement in any digit, at any precision setting. Round-off is now snapped to
+  exact zero on write (`provenance.stable_floats`, threshold `1e-9`, chosen
+  from a five-order gap between the largest observed round-off ~1e-10 and the
+  smallest real quantity ~1e-6), and the identities those residual columns were
+  silently attesting are now asserted in code, where a tolerance belongs.
 
 The findings below are the original assessment, unchanged.
 

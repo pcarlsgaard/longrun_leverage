@@ -9,7 +9,7 @@ from .analysis import CASH, load_inputs, matched
 from .cohorts import cohort_quantiles, nav_path
 from .falsification import COSTS, LAGS, PERIODS, evaluate, level_position, load_price_signals, select_returns, subperiod_index, switching_costs
 from .price_signal_revision import SMA_LENGTHS, SPREADS
-from .provenance import FLOAT_FORMAT
+from .provenance import FLOAT_FORMAT, stable_floats
 
 PERCENTILES = (.01, .10, .25, .50, .75, .90, .99)
 
@@ -77,10 +77,10 @@ def run(root: Path):
             cohorts.append(dict(series=name,signal_index='NONE',sma_days=200,spread_bps=50,lag='LAG1',switch_cost_bps=0,**c))
 
     out=root/'reports'
-    pd.DataFrame(rows).to_csv(out/'cross_index_tqqq_sma_grid.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame(subs).to_csv(out/'cross_index_tqqq_sma_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame(cohorts).to_csv(out/'cross_index_tqqq_sma_cohorts.csv',index=False,float_format=FLOAT_FORMAT)
-    pd.DataFrame(agreements).to_csv(out/'cross_index_tqqq_signal_agreement.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(rows).pipe(stable_floats).to_csv(out/'cross_index_tqqq_sma_grid.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(subs).pipe(stable_floats).to_csv(out/'cross_index_tqqq_sma_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(cohorts).pipe(stable_floats).to_csv(out/'cross_index_tqqq_sma_cohorts.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(agreements).pipe(stable_floats).to_csv(out/'cross_index_tqqq_signal_agreement.csv',index=False,float_format=FLOAT_FORMAT)
 
     report(root, pd.DataFrame(rows), pd.DataFrame(subs), pd.DataFrame(cohorts),
            pd.DataFrame(agreements))

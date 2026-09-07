@@ -10,7 +10,7 @@ import pandas as pd
 from .analysis import CASH, FAMILIES, load_inputs, matched
 from .cohorts import cohort_quantiles, nav_path
 from .falsification import LAGS, level_position, load_price_signals, select_returns, switching_costs
-from .provenance import FLOAT_FORMAT
+from .provenance import FLOAT_FORMAT, stable_floats
 
 HORIZONS = (10, 20, 30)
 PERCENTILES = (0.01, 0.10, 0.25, 0.50, 0.75, 0.90, 0.99)
@@ -138,7 +138,7 @@ def run(root: Path):
 
     out = pd.DataFrame(rows)
     path = root / 'reports' / 'price_signal_cohort_percentiles.csv'
-    out.to_csv(path, index=False, float_format=FLOAT_FORMAT)
+    out.pipe(stable_floats).to_csv(path, index=False, float_format=FLOAT_FORMAT)
     write_summary(root, out)
     print(f'Wrote {len(out)} cohort-distribution rows to {path}')
     return out

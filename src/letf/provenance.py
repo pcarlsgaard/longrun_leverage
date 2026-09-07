@@ -16,7 +16,7 @@ import ast
 import hashlib
 from pathlib import Path
 
-__all__ = ['FLOAT_FORMAT', 'sha', 'source_hashes']
+__all__ = ['FLOAT_FORMAT', 'ZERO_TOLERANCE', 'sha', 'source_hashes', 'stable_floats']
 
 # Output precision for every committed CSV.
 #
@@ -26,6 +26,38 @@ __all__ = ['FLOAT_FORMAT', 'sha', 'source_hashes']
 # is indistinguishable from a real change at a glance, and it defeats
 # scripts/check_reproducible.sh. %.10g is inside the stable range.
 FLOAT_FORMAT = '%.10g'
+
+# Below this, a value is round-off, not a quantity.
+#
+# Cutting output precision is necessary but not sufficient for byte-reproducible
+# results: %g prints its significant digits whatever the exponent, so a
+# difference that is algebraically zero prints as -7.993605777e-14 on one
+# platform and -8.348877145e-14 on another, and the two disagree in every digit.
+# Printing it was misleading anyway — a reader has no way to tell that
+# "-7.99e-14" means zero.
+#
+# Every value in this repository's outputs is either round-off (observed maximum
+# ~1e-10) or a real quantity (observed minimum ~1e-6). The gap is five orders
+# wide, so this threshold sits in empty space rather than near anything.
+ZERO_TOLERANCE = 1e-9
+
+
+def stable_floats(frame):
+    """Snap round-off to exact zero so results are byte-reproducible.
+
+    Apply immediately before writing. A quantity that must be zero should also
+    be *asserted* zero in code — this controls only what gets printed, and it
+    would happily hide a residual that had grown into a real bug.
+    """
+    numeric = frame.select_dtypes('number')
+    if not len(numeric.columns) if hasattr(numeric, 'columns') else numeric.empty:
+        return frame
+    snapped = numeric.mask(numeric.abs() < ZERO_TOLERANCE, 0.0)
+    if not hasattr(frame, 'columns'):
+        return snapped
+    out = frame.copy()
+    out[numeric.columns] = snapped
+    return out
 
 
 def sha(path) -> str:

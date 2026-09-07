@@ -43,7 +43,7 @@ from .diagnostics import edge_concentration
 from .falsification import load_price_signals
 from .signals import LAGS, level_position
 from .strategy import select_returns, switching_costs
-from .provenance import FLOAT_FORMAT
+from .provenance import FLOAT_FORMAT, stable_floats
 
 PERMUTATIONS = 2000
 SEED = 20260907
@@ -242,7 +242,7 @@ def run(root: Path, permutations=PERMUTATIONS, seed=SEED):
 
     out = pd.DataFrame(rows)
     reports = root / 'reports'
-    out.to_csv(reports / 'signal_null_model.csv', index=False, float_format=FLOAT_FORMAT)
+    out.pipe(stable_floats).to_csv(reports / 'signal_null_model.csv', index=False, float_format=FLOAT_FORMAT)
     report(out, reports, permutations)
     (reports / 'signal_null_model_manifest.json').write_text(json.dumps({
         'permutations': permutations, 'seed': seed, 'specifications': SPECIFICATIONS,
