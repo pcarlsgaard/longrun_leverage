@@ -18,3 +18,4 @@ python -m letf.cohort_distributions
 python -m letf.cross_index_signal
 python -m letf.null_model
 python -m letf.hedge_alternatives
+python -m letf.leaps_robustness

@@ -1,0 +1,109 @@
+{
+  "window": [
+    "1986-09-29",
+    "2026-09-02"
+  ],
+  "observations": 10059,
+  "roll_intervals": {
+    "6m": 0.5,
+    "9m": 0.75,
+    "12m": 1.0,
+    "13m": 1.0833333333333333,
+    "18m": 1.5
+  },
+  "structures": {
+    "LEAPS_80_25_TREASURY": [
+      0.8,
+      0.25
+    ],
+    "LEAPS_85_30_TREASURY": [
+      0.85,
+      0.3
+    ],
+    "LEAPS_95_50_TREASURY": [
+      0.95,
+      0.5
+    ]
+  },
+  "benchmark_interval": "12m",
+  "monte_carlo_intervals": [
+    "9m",
+    "12m",
+    "18m"
+  ],
+  "maturity_years": 2.0,
+  "expiry_months": [
+    1,
+    6,
+    12
+  ],
+  "iv_premium": 0.03,
+  "option_spread_bps": 100.0,
+  "sma_days": 200,
+  "lag": 2,
+  "switch_cost_bps": 25,
+  "seed": 20260907,
+  "block_lengths": [
+    21,
+    63,
+    126
+  ],
+  "primary_block": 63,
+  "primary_paths": 5000,
+  "sensitivity_paths": 2000,
+  "horizons": [
+    20,
+    30
+  ],
+  "warmup_sessions": 504,
+  "bootstrap": "joint moving-block resample of whole daily rows, drawn with replacement from every possible start; last block truncated",
+  "resampled_columns": [
+    "price_return",
+    "equity_total",
+    "treasury",
+    "cash",
+    "upro",
+    "tmf",
+    "dividend_yield"
+  ],
+  "rebuilt_inside_each_path": [
+    "implied volatility proxy",
+    "trailing risk-free rate",
+    "SMA position"
+  ],
+  "option_prices": "modelled with Black-Scholes on an assumed implied volatility; this repository holds no option price history, and resampling a modelled price does not measure it",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "pandas": "3.0.5",
+  "scipy": "1.17.1",
+  "matplotlib": "3.11.1",
+  "source_hashes": {
+    "src/letf/analysis.py": "e92b85319efd94dcb4c7862ed80b01cdad6243d1b0a53758e3d1030d0afe21de",
+    "src/letf/analysis_report.py": "d68c6b1f9e00a0b841cbf6cd35fd7287ee216adc48715a763ac10e9498ced75d",
+    "src/letf/cohorts.py": "40e0130a8fb174c9afb3216c17cf3d3da9a900cd3de8dbd2ef1a4778284d1c1c",
+    "src/letf/data.py": "163c7c05fe1cc637d069fd80236691f53fa17d9d6494039f113bda92f25d142e",
+    "src/letf/diagnostics.py": "28f71f304c692e103a79b8fcfc3dec04c50c9e8f8652b9a5d6e6e9bd683db0d6",
+    "src/letf/falsification.py": "af5722b9b1a5785d4ae0e4583243c5beeaa58172525d1101af5fa6e44915ebb7",
+    "src/letf/falsification_report.py": "f633da59a65f31d1bebaef8482666efc3a3155c0a1c49a073ca8bba0936d43fb",
+    "src/letf/hedge_alternatives.py": "fa020951e15a0305ee5ab9a9a461fe007f4153352a2a1fbe09a5d3abaf6878b5",
+    "src/letf/leaps_robustness.py": "898ed92b2ce90964e29842e6432d08f86206ad75164a87ccd8d411b6cfd6e08a",
+    "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
+    "src/letf/options.py": "09df4b72992030a87eef10100d891c758b5e74dfa2cdb9acf58db84b27d98d7c",
+    "src/letf/pipeline.py": "7d60efd68b7e7400a2b0258c59655174e4faaf6c13a99a73343cb9f9eed1dd00",
+    "src/letf/provenance.py": "9c7eba5487fdb5c77187c09aab600db46b190dc9f1d36d43b616233c6c7103d2",
+    "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
+    "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe"
+  },
+  "outputs_sha256": {
+    "leaps_roll_frequency.csv": "37d7702c8621a8e37be765d0deff7812905f1ffdeb8ebef2ba7a8aa5984a5870",
+    "leaps_roll_dispersion.csv": "860c52c8e6de4fd7bead65bb6999fc64c36b91abdfce4ab79a01a95ffaa848cf",
+    "leaps_model_uncertainty.csv": "f8991309cad8c1114b82f3948cf4256c9ef4a3fc9bb52beee2e6403dcc9554c9",
+    "leaps_historical_reference.csv": "834a8988407f486d79c5b4d323f32bf7664a7e0dfbcec68158bdd98172d81e6f",
+    "leaps_monte_carlo_20y.csv": "c4e2202c0a2b3d1f6bb8548fcbfd99a47309e40ca759edf7e96343780ccccef0",
+    "leaps_monte_carlo_30y.csv": "0d25721fae98633fe160539d9d8c0e37fff35224e155606fb9a092cfabb58f1e",
+    "leaps_monte_carlo_percentiles.csv": "53cfa39440da82015251d7fc400f40ab6c9996e9ed88ecb86f3b674c3a6e37ef",
+    "leaps_monte_carlo_drawdowns.csv": "fd74a12dd97fef6cf8f0daab33bf0ff684930211b1d5e0a3adcee0eb7bd3a3c0",
+    "leaps_monte_carlo_ranks.csv": "4b3ff75f377302409331d7c866e5f261dacd26776c881f8b470ee136354c595c",
+    "leaps_monte_carlo_blocks.csv": "785d852bc12e993ef97677140643774e4d5314cd6447869d1a7e9307dddb5ff9"
+  }
+}

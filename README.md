@@ -47,6 +47,10 @@ with a compressed initial data snapshot in `data/snapshots/`.
 | `reports/validation.csv` | Training, held-out and full-overlap tracking diagnostics |
 | `reports/annual_validation.csv` | Year-by-year synthetic versus observed returns |
 | `reports/compounding_decomposition.csv` | Exact log-growth compounding/cost decomposition |
+| `reports/hedge_alternatives_*.csv` | Hedge families, option grid, break-even volatility, duration and safe-sleeve sweeps |
+| `reports/leaps_roll_frequency.csv` | Every LEAPS structure at every roll interval, with realized maturities and measured cost drag |
+| `reports/leaps_monte_carlo_{20y,30y}.csv` | Bootstrap distribution summaries per horizon |
+| `reports/leaps_monte_carlo_{percentiles,drawdowns,ranks,blocks}.csv` | Percentile tables, drawdown probabilities, rank stability, block-length sensitivity |
 
 Suffixes distinguish `BASE` (unfitted 50 bp spread), `TRAINED` (one spread fitted
 through 2018), `SPREAD_0BP/50BP/100BP` (funding sensitivity), `NAV` and `MARKET`
@@ -285,6 +289,55 @@ sits within the assumption's own error bar.
 PYTHONPATH=src python -m letf.hedge_alternatives
 ```
 
+## Does the roll interval matter, and does the ranking survive reordering?
+
+The option work above fixes two things it never varied: it buys roughly two-year
+calls, rolls when about a year is left, and measures everything on the one path
+history actually took.
+[`letf.leaps_robustness`](reports/leaps_roll_monte_carlo_results.md) attacks
+both, on the three structures the grid singled out (80/25, 85/30, 95/50, all
+against a Treasury sleeve) and without re-searching any of them.
+
+**Part A** moves only the roll interval — 6, 9, 12, 13 and 18 months — mapping
+each onto an expiry that is actually listed and reporting the maturity realized
+rather than the one intended. **Part B** resamples the daily record in joint
+moving blocks, rebuilding the volatility proxy, the cash rate and the trend
+signal inside every path, and asks whether the ranking of strategies is a
+property of the strategies or of the order in which crashes arrived.
+
+* **Nine-month rolling cannot be bought.** With three long-dated expiries listed
+  a year out, asking for nine months delivers about ten and a half. Twelve and
+  thirteen months are the same portfolio on a real expiry calendar.
+* **Differences are quoted in volatility points.** One point of assumed implied
+  volatility is worth 0.3-1.4 points of CAGR depending on structure, and that is
+  the scale a roll-interval gap has to clear before it means anything.
+* **The realized path prefers an eighteen-month roll; the bootstrap does not.**
+  Across resampled orderings the interval is worth roughly a tenth of what the
+  choice of structure is worth. Annual rolling is not optimal on the path that
+  happened — it is the interval whose answer changes least when the path
+  changes.
+* **A shorter roll does control exposure drift, and does not pay for itself.**
+  It lifts the delta floor after a major loss and tightens exposure dispersion,
+  at a cost in CAGR several times the drift it removes.
+* **The trend rule is the result that moves.** It ranked second on the realized
+  path and finishes below the unlevered index on about half of resampled
+  orderings, with a modal rank of last. That agrees with the null model, but it
+  is not independent evidence: a moving block destroys structure longer than the
+  block, and a 200-day signal is handicapped by construction. The block-length
+  table measures that handicap rather than waving at it.
+* **95/50 keeps its rank and keeps its tail.** It is the most rank-stable
+  strategy here and still draws down more than 75% on about three paths in ten,
+  with a fifth-percentile outcome below the unlevered index.
+
+**The bootstrap does not make the modelled option prices measured**, and it is
+not a forecast: it resamples the same forty years, so it produces a distribution
+over *orderings*, never over futures.
+
+```bash
+PYTHONPATH=src python -m letf.leaps_robustness            # ~1.5 min on four cores
+PYTHONPATH=src python -m letf.leaps_robustness --paths 500  # a quicker look
+```
+
 ## Reproducing every committed result
 
 ```bash
@@ -336,6 +389,11 @@ Collected rather than scattered, because they bound every result above:
 - **One rate regime.** The whole window is a secular decline in yields, so the
   leveraged-Treasury leg of any hedged structure is itself a single-regime bet,
   in exactly the way October 1987 is for the trend rule.
+- **The bootstrap is not a forecast, and is not neutral.** It resamples the same
+  forty years, so it cannot produce a crash worse than 1987 or a bond regime
+  unlike the one observed; it distributes *orderings*, not futures. It also
+  destroys dependence beyond one block, which handicaps a 200-day trend signal
+  by construction — bounded by the block-length table, not removed by it.
 
 A full methodological and code review of the experiments is in
 [docs/experiment_review.md](docs/experiment_review.md).

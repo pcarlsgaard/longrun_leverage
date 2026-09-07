@@ -40,9 +40,18 @@ import numpy as np
 import pandas as pd
 from scipy.special import ndtr
 
-__all__ = ['LeapsRule', 'black_scholes_call', 'call_delta', 'trailing_dividend_yield',
-           'trailing_riskfree', 'implied_volatility_proxy', 'simulate_leaps_portfolio',
-           'break_even_iv_premium']
+__all__ = ['LeapsRule', 'RollSchedule', 'black_scholes_call', 'call_delta',
+           'trailing_dividend_yield', 'trailing_riskfree', 'implied_volatility_proxy',
+           'listed_expiries', 'choose_expiry', 'roll_schedule', 'leaps_arrays',
+           'simulate_leaps_arrays', 'simulate_leaps_portfolio', 'break_even_iv_premium']
+
+# The published roll ledger. The simulation core tracks more per roll — how much
+# of the premium survived to the sale, how long the contract was actually held —
+# but that belongs to the study asking about roll frequency, not to every
+# caller's committed output.
+LEDGER_COLUMNS = ('close', 'expiry', 'capped', 'strike', 'entry_years', 'entry_moneyness',
+                  'contracts', 'spot', 'wealth', 'premium', 'safe_weight', 'implied_vol',
+                  'entry_delta')
 
 TRADING_DAYS = 252
 YEAR = 365.25
@@ -236,9 +245,208 @@ def implied_volatility_proxy(price_returns: pd.Series, iv_premium: float,
     lagged = realized.shift(lag) * np.sqrt(TRADING_DAYS)
     return (lagged + iv_premium).clip(VOL_FLOOR, VOL_CAP).bfill().rename('implied_vol')
 
+@dataclass(frozen=True, eq=False)
+class RollSchedule:
+    """When the position is rolled and into which contract, for one calendar.
+
+    Separated from the simulation because it depends only on the trading
+    calendar and the rule — never on wealth, prices, volatility or any other
+    path quantity. That is worth stating as a type rather than a comment: it is
+    what makes a rolled-option strategy testable across thousands of simulated
+    paths at the cost of one schedule, and it is also the reason the strategy is
+    implementable, since an investor knows every roll date in advance.
+
+    `starts` are positional indices into the closes; `expiry_days` are calendar
+    days from the first close to each contract's expiry. `calendar` fingerprints
+    the closes this was built for so a schedule cannot be silently applied to a
+    different one. The fingerprint is a guard against mistakes, not a proof of
+    identity: two calendars agreeing on first close, last close and length are
+    treated as the same.
+    """
+    starts: np.ndarray
+    expiry_days: np.ndarray
+    rule: LeapsRule
+    calendar: tuple
+
+
+def calendar_fingerprint(closes: pd.DatetimeIndex) -> tuple:
+    return (closes[0].value, closes[-1].value, len(closes))
+
+
+def roll_schedule(closes: pd.DatetimeIndex, rule: LeapsRule) -> RollSchedule:
+    """Roll dates and chosen expiries for `rule` on `closes`.
+
+    The position is rolled once the contract held has `roll_at_years` left, and
+    the replacement is whichever listed expiry sits closest to the target
+    maturity. Because listings are sparse that far out the maturity actually
+    bought drifts around the target, so the roll dates are not evenly spaced and
+    the realized holding period is not exactly `maturity_years - roll_at_years`.
+    Callers that care about the difference should measure it from the returned
+    schedule rather than assume the nominal interval.
+    """
+    days = (closes - closes[0]).days.to_numpy().astype(float)
+    expiries = listed_expiries(closes[0], closes[-1], rule.expiry_months)
+    starts, chosen, i = [], [], 0
+    while True:
+        expiry = choose_expiry(closes[i], expiries, rule.maturity_years, rule.roll_at_years)
+        if expiry is None:
+            break
+        starts.append(i)
+        chosen.append(float((expiry - closes[0]).days))
+        threshold = chosen[-1] - rule.roll_at_years * YEAR
+        following = np.flatnonzero(days > max(threshold, days[i]))
+        if not len(following):
+            break
+        i = int(following[0])
+    if not starts:
+        raise ValueError('No listed expiry is long enough to open a position')
+    return RollSchedule(np.array(starts, dtype=int), np.array(chosen, dtype=float),
+                        rule, calendar_fingerprint(closes))
+
+
+def simulate_leaps_arrays(spot, safe_growth, dividend, riskfree, vol, days,
+                          schedule: RollSchedule, ledger=True):
+    """Numeric core of the rolling-call simulation. Arrays in, arrays out.
+
+    Split out from :func:`simulate_leaps_portfolio` so that a caller generating
+    paths numerically — a bootstrap, say — runs the *same* arithmetic as the
+    historical result instead of a second implementation that could drift from
+    it. The pandas function is now a validating wrapper around this.
+
+    `safe_growth` is the safe sleeve's growth factor per session, with 1.0 in
+    the entry slot so it aligns with `spot`. Returns `(navs, exposures,
+    option_weights, rolls)`; `option_weights` is the fraction of wealth held in
+    the option leg on each close, which the wrapper does not expose but which
+    is what tells you whether a position has decayed to nothing between rolls.
+    """
+    rule = schedule.rule
+    n = len(spot)
+    for name, array in (('spot', spot), ('dividend', dividend), ('riskfree', riskfree),
+                        ('vol', vol), ('safe growth', safe_growth), ('days', days)):
+        if len(array) != n:
+            raise ValueError(f'Option input {name} has the wrong length')
+        if not np.isfinite(array).all():
+            raise ValueError(f'Non-finite {name} in option inputs')
+    if not (spot > 0).all() or not (safe_growth > 0).all():
+        raise ValueError('Non-positive spot or safe sleeve growth')
+    spread = rule.spread_bps / 10000
+    starts = schedule.starts
+
+    # Every option value on the path is priced in one call rather than one per
+    # holding period. Which contract a session holds depends only on the
+    # schedule, so the strike, the time remaining and the market inputs are all
+    # known up front; only the *size* of the position depends on wealth, and
+    # that is what the loop below still walks forward one roll at a time.
+    # Black-Scholes is elementwise, so batching changes the cost and not the
+    # arithmetic.
+    #
+    # The flattened index repeats each roll session on purpose: it ends the
+    # segment being sold and begins the one being bought, and those are
+    # different contracts priced on the same close.
+    ends = np.r_[starts[1:], n - 1]
+    lengths = ends - starts + 1
+    offsets = np.r_[0, np.cumsum(lengths)]
+    segment = np.repeat(np.arange(len(starts)), lengths)
+    flat = np.arange(offsets[-1]) - offsets[segment] + starts[segment]
+    strikes = rule.moneyness * spot[starts]
+    remaining = np.maximum((schedule.expiry_days[segment] - days[flat]) / YEAR, 0.)
+    values = black_scholes_call(spot[flat], strikes[segment], riskfree[flat],
+                                dividend[flat], vol[flat], remaining)
+    deltas = call_delta(spot[flat], strikes[segment], riskfree[flat], dividend[flat],
+                        vol[flat], remaining)
+
+    navs, exposures, weights = np.empty(n), np.empty(n), np.empty(n)
+    wealth, rolls = 1., []
+    for k, begin in enumerate(starts):
+        # The option bought at `begin` is valued through `last`, the session it
+        # is sold on, which is also the session the next one is bought on. That
+        # session's wealth and exposure belong to the position being closed, so
+        # each segment writes from `begin + 1` and the roll session is written
+        # by the segment that held it.
+        last, begin = int(ends[k]), int(begin)
+        # Strike listings are also discrete, but that is left unmodelled on
+        # purpose: at long dates the grid is a fraction of a percent of spot,
+        # which is invisible beside the volatility assumption, and a step
+        # expressed as a fraction of spot never binds on a round moneyness at
+        # all. A parameter that looks modelled but is not is worse than its
+        # absence.
+        strike = float(strikes[k])
+        expiry = float(schedule.expiry_days[k])
+        entry_years = (expiry - days[begin]) / YEAR
+        span = slice(int(offsets[k]), int(offsets[k + 1]))
+        value, delta, years = values[span], deltas[span], remaining[span]
+        premium, entry_delta = float(value[0]), float(delta[0])
+        if premium <= 0 or entry_delta <= 0:
+            raise ValueError('Degenerate option at roll; check volatility inputs')
+        afford = wealth / (premium * (1 + spread))
+        if rule.premium_budget is not None:
+            contracts, capped = afford * rule.premium_budget, False
+        else:
+            want = rule.target_exposure * wealth / (entry_delta * spot[begin])
+            contracts, capped = min(want, afford), want > afford
+        bills = wealth - contracts * premium * (1 + spread)
+        if bills < -1e-12:
+            raise ValueError('Roll spent more than available wealth')
+        bills = max(bills, 0.)
+
+        window = slice(begin, last + 1)
+        # The safe sleeve compounds from the roll close onward; the roll session
+        # itself is already priced into the wealth being reinvested, so its
+        # growth factor must not be applied a second time.
+        carry = np.cumprod(np.r_[1., safe_growth[begin + 1:last + 1]])
+        held = contracts * value + bills * carry
+        if not np.all(held > 0):
+            raise ValueError('Non-positive wealth; option accounting is broken')
+        carried = contracts * delta * spot[window] / held
+        option_weight = contracts * value / held
+        if k == 0:
+            # Wealth is 1.0 at the entry close, before the position is paid for,
+            # so the cost of establishing it lands in the first session's return
+            # rather than in a path that mysteriously starts below par.
+            navs[begin], exposures[begin], weights[begin] = 1., carried[0], option_weight[0]
+        navs[begin + 1:last + 1] = held[1:]
+        exposures[begin + 1:last + 1] = carried[1:]
+        weights[begin + 1:last + 1] = option_weight[1:]
+        if ledger:
+            rolls.append(dict(begin=begin, last=last, expiry_day=expiry, capped=capped,
+                              strike=strike, entry_years=entry_years,
+                              exit_years=float(years[-1]), held_years=float(
+                                  (days[last] - days[begin]) / YEAR),
+                              entry_moneyness=strike / spot[begin],
+                              contracts=contracts, spot=spot[begin], wealth=wealth,
+                              premium=premium, safe_weight=bills / wealth,
+                              implied_vol=vol[begin], entry_delta=entry_delta,
+                              exit_value=float(value[-1]),
+                              # What fraction of the premium paid survived to the
+                              # roll. Below one the option decayed; near zero the
+                              # sleeve is nearly all safe asset by the time it is
+                              # replaced, whatever its nominal budget says.
+                              exit_premium_ratio=float(value[-1]) / premium,
+                              trough_premium_ratio=float(value.min()) / premium))
+        wealth = float(contracts * value[-1] * (1 - spread) + bills * carry[-1])
+    return navs, exposures, weights, rolls
+
+
+def leaps_arrays(price: pd.Series, safe_returns: pd.Series, dividend: pd.Series,
+                 riskfree: pd.Series, vol: pd.Series):
+    """Validate the pandas inputs and hand back the arrays the core consumes."""
+    closes = price.index
+    if not isinstance(closes, pd.DatetimeIndex) or not closes.is_monotonic_increasing:
+        raise ValueError('Price must be a sorted daily close series')
+    if not safe_returns.index.equals(closes[1:]):
+        raise ValueError('Safe returns must cover every session after the entry close')
+    inputs = pd.concat([price, dividend, riskfree, vol], axis=1)
+    if (inputs.isna().any().any() or safe_returns.isna().any()
+            or not np.isfinite(inputs.to_numpy()).all() or (price <= 0).any()):
+        raise ValueError('Incomplete or non-finite option inputs')
+    q, r, sigma = (s.reindex(closes).to_numpy() for s in (dividend, riskfree, vol))
+    return (price.to_numpy(), np.r_[1., 1 + safe_returns.to_numpy()], q, r, sigma,
+            (closes - closes[0]).days.to_numpy().astype(float))
+
 
 def simulate_leaps_portfolio(price: pd.Series, safe_returns: pd.Series, dividend: pd.Series,
-                             riskfree: pd.Series, vol: pd.Series, rule=LeapsRule(), ledger=True):
+                             riskfree: pd.Series, vol: pd.Series, rule=LeapsRule(),
+                             ledger=True, schedule: RollSchedule | None = None):
     """Roll long-dated calls against a safe sleeve; return the wealth path.
 
     `price` is the underlying index on closes, starting at the entry close.
@@ -263,117 +471,29 @@ def simulate_leaps_portfolio(price: pd.Series, safe_returns: pd.Series, dividend
     Either way exposure is re-struck only at rolls, never daily. That is the
     structural difference from a daily-reset fund: between rolls the position is
     never forced to trade, and the option's own convexity carries the exposure.
+
+    `schedule` may be supplied by a caller that has already built it for this
+    calendar and rule, which is worth doing when many paths share one calendar.
     """
     closes = price.index
-    if not isinstance(closes, pd.DatetimeIndex) or not closes.is_monotonic_increasing:
-        raise ValueError('Price must be a sorted daily close series')
-    if not safe_returns.index.equals(closes[1:]):
-        raise ValueError('Safe returns must cover every session after the entry close')
-    inputs = pd.concat([price, dividend, riskfree, vol], axis=1)
-    if (inputs.isna().any().any() or safe_returns.isna().any()
-            or not np.isfinite(inputs.to_numpy()).all() or (price <= 0).any()):
-        raise ValueError('Incomplete or non-finite option inputs')
+    spot, safe_growth, q, r, sigma, days = leaps_arrays(
+        price, safe_returns, dividend, riskfree, vol)
+    if schedule is None:
+        schedule = roll_schedule(closes, rule)
+    elif schedule.rule != rule or schedule.calendar != calendar_fingerprint(closes):
+        raise ValueError('Supplied roll schedule was built for a different rule or calendar')
 
-    spot = price.to_numpy()
-    q, r, sigma = (s.reindex(closes).to_numpy() for s in (dividend, riskfree, vol))
-    safe_growth = np.r_[1., 1 + safe_returns.to_numpy()]
-    days = (closes - closes[0]).days.to_numpy().astype(float)
-    spread = rule.spread_bps / 10000
-    n = len(closes)
-
-    # Roll dates depend only on the calendar and the rule, never on wealth, so
-    # each holding period can be valued as one vector operation. What sets them
-    # is the listed-expiry calendar: the position is rolled once the contract
-    # held has `roll_at_years` left, and the replacement is whichever listed
-    # expiry sits closest to the target maturity. Because listings are sparse
-    # that far out, the maturity actually bought drifts around the target and
-    # the roll dates are not evenly spaced.
-    expiries = listed_expiries(closes[0], closes[-1], rule.expiry_months)
-    starts, chosen, i = [], [], 0
-    while True:
-        expiry = choose_expiry(closes[i], expiries, rule.maturity_years, rule.roll_at_years)
-        if expiry is None:
-            break
-        starts.append(i)
-        chosen.append(expiry)
-        threshold = (expiry - pd.Timedelta(days=rule.roll_at_years * YEAR) - closes[0]).days
-        following = np.flatnonzero(days > max(threshold, days[i]))
-        if not len(following):
-            break
-        i = int(following[0])
-    if not starts:
-        raise ValueError('No listed expiry is long enough to open a position')
-
-    navs = np.empty(n)
-    exposures = np.empty(n)
-    wealth, rolls = 1., []
-    for k, begin in enumerate(starts):
-        # The option bought at `begin` is valued through `last`, the session it
-        # is sold on, which is also the session the next one is bought on. That
-        # session's wealth and exposure belong to the position being closed, so
-        # each segment writes from `begin + 1` and the roll session is written
-        # by the segment that held it.
-        last = starts[k + 1] if k + 1 < len(starts) else n - 1
-        # Strike listings are also discrete, but that is left unmodelled on
-        # purpose: at long dates the grid is a fraction of a percent of spot,
-        # which is invisible beside the volatility assumption, and a step
-        # expressed as a fraction of spot never binds on a round moneyness at
-        # all. A parameter that looks modelled but is not is worse than its
-        # absence.
-        strike = rule.moneyness * spot[begin]
-        expiry = float((chosen[k] - closes[0]).days)
-        entry_years = (expiry - days[begin]) / YEAR
-        premium = float(black_scholes_call(spot[begin], strike, r[begin], q[begin],
-                                           sigma[begin], entry_years))
-        entry_delta = float(call_delta(spot[begin], strike, r[begin], q[begin],
-                                       sigma[begin], entry_years))
-        if premium <= 0 or entry_delta <= 0:
-            raise ValueError('Degenerate option at roll; check volatility inputs')
-        afford = wealth / (premium * (1 + spread))
-        if rule.premium_budget is not None:
-            contracts, capped = afford * rule.premium_budget, False
-        else:
-            want = rule.target_exposure * wealth / (entry_delta * spot[begin])
-            contracts, capped = min(want, afford), want > afford
-        bills = wealth - contracts * premium * (1 + spread)
-        if bills < -1e-12:
-            raise ValueError('Roll spent more than available wealth')
-        bills = max(bills, 0.)
-        if ledger:
-            rolls.append(dict(close=closes[begin], expiry=chosen[k], capped=capped,
-                              strike=strike, entry_years=entry_years,
-                              entry_moneyness=strike / spot[begin],
-                              contracts=contracts, spot=spot[begin], wealth=wealth,
-                              premium=premium, safe_weight=bills / wealth,
-                              implied_vol=sigma[begin], entry_delta=entry_delta))
-
-        window = slice(begin, last + 1)
-        years = np.maximum((expiry - days[window]) / YEAR, 0.)
-        value = black_scholes_call(spot[window], strike, r[window], q[window],
-                                   sigma[window], years)
-        delta = call_delta(spot[window], strike, r[window], q[window], sigma[window], years)
-        # The safe sleeve compounds from the roll close onward; the roll session
-        # itself is already priced into the wealth being reinvested, so its
-        # growth factor must not be applied a second time.
-        carry = np.cumprod(np.r_[1., safe_growth[begin + 1:last + 1]])
-        held = contracts * value + bills * carry
-        if not np.all(held > 0):
-            raise ValueError('Non-positive wealth; option accounting is broken')
-        carried = contracts * delta * spot[window] / held
-        if k == 0:
-            # Wealth is 1.0 at the entry close, before the position is paid for,
-            # so the cost of establishing it lands in the first session's return
-            # rather than in a path that mysteriously starts below par.
-            navs[begin], exposures[begin] = 1., carried[0]
-        navs[begin + 1:last + 1] = held[1:]
-        exposures[begin + 1:last + 1] = carried[1:]
-        wealth = float(contracts * value[-1] * (1 - spread) + bills * carry[-1])
-
+    navs, exposures, _, rolls = simulate_leaps_arrays(
+        spot, safe_growth, q, r, sigma, days, schedule, ledger)
     nav = pd.Series(navs, index=closes, name='wealth')
     exposure = pd.Series(exposures, index=closes, name='delta_exposure')
     if not ledger:
         return nav
-    return nav, exposure, pd.DataFrame(rolls)
+    frame = pd.DataFrame(rolls)
+    # The core works in positions and day counts; the published ledger is dated.
+    frame.insert(0, 'close', closes[frame.pop('begin').to_numpy()])
+    frame.insert(1, 'expiry', closes[0] + pd.to_timedelta(frame.pop('expiry_day'), unit='D'))
+    return nav, exposure, frame[list(LEDGER_COLUMNS)]
 
 
 def break_even_iv_premium(rival_cagr: float, build, low=-.05, high=.60, tolerance=1e-4):

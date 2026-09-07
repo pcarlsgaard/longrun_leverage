@@ -20,6 +20,10 @@ This module compares four families on one window and one financing basis:
 read the break-even volatility table rather than its CAGR. Every other number
 here is arithmetic on realized prices, as everywhere else in this repository.
 
+The roll schedule here is fixed at one purchase a year, and nothing below tests
+that choice or asks whether the ranking depends on the order history arrived in.
+`letf.leaps_robustness` does both.
+
 Note what cannot be run here. `letf.null_model` permutes a position series, so
 it applies only to the rule that has one; a static mix and a roll schedule have
 no timing to randomize. Edge concentration applies to everything and is reported
@@ -106,6 +110,41 @@ def leaps_returns(price_with_entry, safe_returns, dividend, riskfree, vol, rule)
     return nav.pct_change().dropna(), exposure, rolls
 
 
+def comparison_window(daily, calendar, price, nasdaq):
+    """The sessions every structure in this study is measured over.
+
+    Inherited from the falsification and null-model batteries, including their
+    250-day Nasdaq warm-up, which binds first. It is kept even though nothing
+    here trades the Nasdaq, so that every CAGR in these reports is directly
+    comparable to the ones those reports already publish. Defined once because
+    a second module now measures on the same window, and a window that drifted
+    between them would make the two reports quietly incomparable.
+    """
+    return matched(pd.concat([
+        daily[[EQUITY, TREASURY, CASH, UPRO, SSO, TMF, 'NASDAQ100_1X']],
+        level_position(price, calendar, 250, LAG),
+        level_position(nasdaq, calendar, 250, LAG),
+        level_position(price, calendar, SMA_DAYS, LAG),
+    ], axis=1)).index
+
+
+def option_inputs(daily, price, ix, calendar):
+    """Spot, dividend yield, risk-free rate and implied volatility on the closes.
+
+    The option calendar starts one session before the return window, because
+    wealth is 1.0 at the entry close and the first return is earned after it.
+    """
+    entry = calendar[calendar.get_loc(ix[0]) - 1]
+    closes = pd.DatetimeIndex([entry]).append(ix)
+    spot = price.reindex(closes)
+    if spot.isna().any():
+        raise ValueError('Price index does not cover the comparison window')
+    dividend = trailing_dividend_yield(spot, daily[EQUITY].reindex(closes))
+    riskfree = trailing_riskfree(daily[CASH].reindex(closes))
+    vol = implied_volatility_proxy(spot.pct_change().fillna(0.), IV_PREMIUM, MATURITY_YEARS)
+    return spot, dividend, riskfree, vol
+
+
 def build_candidates(daily, price, ix, calendar):
     """Every structure under comparison, on one window and one financing basis.
 
@@ -115,11 +154,7 @@ def build_candidates(daily, price, ix, calendar):
     whatever its delta implies. Equal exposure is not equal risk and these
     numbers are descriptive, not a matching.
     """
-    entry = calendar[calendar.get_loc(ix[0]) - 1]
-    closes = pd.DatetimeIndex([entry]).append(ix)
-    spot = price.reindex(closes)
-    if spot.isna().any():
-        raise ValueError('Price index does not cover the comparison window')
+    spot, dividend, riskfree, vol = option_inputs(daily, price, ix, calendar)
     d = daily.loc[ix]
     position = level_position(price, calendar, SMA_DAYS, LAG).loc[ix]
 
@@ -147,9 +182,6 @@ def build_candidates(daily, price, ix, calendar):
     candidates['UPRO60_TMF40_SMA'] = (
         switching_costs(blended, position, SWITCH_COST_BPS), 1.8 * position.mean())
 
-    dividend = trailing_dividend_yield(spot, daily[EQUITY].reindex(closes))
-    riskfree = trailing_riskfree(daily[CASH].reindex(closes))
-    vol = implied_volatility_proxy(spot.pct_change().fillna(0.), IV_PREMIUM, MATURITY_YEARS)
     options = {
         'LEAPS_ATM_50_TBILL': dict(moneyness=1., premium_budget=.5, safe=CASH),
         'LEAPS_ATM_40_TBILL': dict(moneyness=1., premium_budget=.4, safe=CASH),
@@ -500,17 +532,8 @@ def run(root: Path):
     daily, config = load_inputs(root, offline=True)
     calendar = daily.index
     price = load_price_signals(root, config, offline=True)['SP500']
-    # The comparison window is inherited from the falsification and null-model
-    # batteries, including their 250-day Nasdaq warm-up, which binds first. It is
-    # kept even though nothing here trades the Nasdaq, so that every CAGR in this
-    # report is directly comparable to the ones those reports already publish.
     nasdaq = load_price_signals(root, config, offline=True)['NASDAQ100']
-    ix = matched(pd.concat([
-        daily[[EQUITY, TREASURY, CASH, UPRO, SSO, TMF, 'NASDAQ100_1X']],
-        level_position(price, calendar, 250, LAG),
-        level_position(nasdaq, calendar, 250, LAG),
-        level_position(price, calendar, SMA_DAYS, LAG),
-    ], axis=1)).index
+    ix = comparison_window(daily, calendar, price, nasdaq)
 
     candidates, ledgers, (spot, dividend, riskfree) = build_candidates(daily, price, ix, calendar)
     metrics = pd.DataFrame([describe(name, returns, calendar, exposure)
@@ -579,7 +602,7 @@ def main():
 
 
 
-def _table(frame, columns, formats, index=None):
+def markdown_table(frame, columns, formats, index=None):
     """Markdown table from a frame, formatting each column by name."""
     header = '| ' + ' | '.join(columns) + ' |'
     align = '|' + '|'.join('---:' if formats.get(c) else '---' for c in columns) + '|'
@@ -703,7 +726,7 @@ reader can check against option prices they know.
 
 ## Every structure on one window
 
-{_table(metrics.sort_values('cagr', ascending=False), metric_columns, metric_formats)}
+{markdown_table(metrics.sort_values('cagr', ascending=False), metric_columns, metric_formats)}
 
 Exposure is delta-equivalent equity per dollar of portfolio, descriptive only:
 equal exposure is not equal risk. Cohort columns are overlapping windows and
@@ -711,7 +734,7 @@ are historical outcomes, not independent draws.
 
 ## Concentration: is the advantage twenty days again?
 
-{_table(versus_levered.reset_index().sort_values('total_log_advantage', ascending=False),
+{markdown_table(versus_levered.reset_index().sort_values('total_log_advantage', ascending=False),
         ['series', 'total_log_advantage', 'top1_day_share', 'top20_day_share',
          'wealth_ratio_excluding_top_20_days', 'best_day'],
         {'total_log_advantage': '.3f', 'top1_day_share': '.1%', 'top20_day_share': '.1%',
@@ -723,7 +746,7 @@ the benchmark rather than of the candidates: a strategy that falls
 {abs(always.max_drawdown):.0%} at its worst can only be beaten in the crash. The unleveraged
 index is the control:
 
-{_table(versus_index.reset_index().sort_values('total_log_advantage', ascending=False),
+{markdown_table(versus_index.reset_index().sort_values('total_log_advantage', ascending=False),
         ['series', 'total_log_advantage', 'top1_day_share', 'top20_day_share',
          'wealth_ratio_excluding_top_20_days'],
         {'total_log_advantage': '.3f', 'top1_day_share': '.1%', 'top20_day_share': '.1%',
@@ -738,15 +761,15 @@ edge over *always-on leverage* is twenty days; its edge over the *index* is not.
 
 Subperiod CAGR:
 
-{_table(subperiods, ['series'] + list(SUBPERIODS), {k: '.1%' for k in SUBPERIODS})}
+{markdown_table(subperiods, ['series'] + list(SUBPERIODS), {k: '.1%' for k in SUBPERIODS})}
 
 Total return through each crash:
 
-{_table(crashes, ['series'] + list(CRASHES), {k: '.1%' for k in CRASHES})}
+{markdown_table(crashes, ['series'] + list(CRASHES), {k: '.1%' for k in CRASHES})}
 
 Best and worst leveraged structure in each crash, from the table above:
 
-{_table(pd.DataFrame(best_worst), ['crash', 'best', 'best_return', 'worst', 'worst_return'],
+{markdown_table(pd.DataFrame(best_worst), ['crash', 'best', 'best_return', 'worst', 'worst_return'],
         {'best_return': '.1%', 'worst_return': '.1%'})}
 
 The hedges fail in different regimes, and that is the most useful thing here.
@@ -761,7 +784,7 @@ the way October 1987 is for the trend rule.
 
 ## Options: the break-even volatility
 
-{_table(breakeven, ['structure', 'cagr_at_base_premium'] +
+{markdown_table(breakeven, ['structure', 'cagr_at_base_premium'] +
         [f'{r}_breakeven_mean_iv' for r in RIVALS],
         dict({'cagr_at_base_premium': '.2%'},
              **{f'{r}_breakeven_mean_iv': '.1%' for r in RIVALS}))}
@@ -802,7 +825,7 @@ so these rungs carry exactly the funding and spread every other result here uses
 they carry no fund expense, which is why the daily rung sits slightly above
 `UPRO_ALWAYS_3X`.
 
-{_table(ladder, ['leverage', 'reset', 'cagr', 'max_drawdown', 'terminal_multiple', 'wiped_out'],
+{markdown_table(ladder, ['leverage', 'reset', 'cagr', 'max_drawdown', 'terminal_multiple', 'wiped_out'],
         {'leverage': '.0f', 'cagr': '.2%', 'max_drawdown': '.1%', 'terminal_multiple': ',.1f'})}
 
 **Half the explanation survives and half of it does not.**
@@ -847,7 +870,7 @@ drawdown at once** ({index_row.cagr:.2%} at {index_row.max_drawdown:.1%}), which
 rather than a knife-edge. The best cell in each exposure band, ranked by worst
 ten-year outcome:
 
-{_table(bands, ['band', 'moneyness', 'premium_budget', 'total_exposure', 'cagr',
+{markdown_table(bands, ['band', 'moneyness', 'premium_budget', 'total_exposure', 'cagr',
                 'max_drawdown', 'cohort_10y_min_cagr'],
         {'moneyness': '.2f', 'premium_budget': '.0%', 'total_exposure': '.2f',
          'cagr': '.2%', 'max_drawdown': '.1%', 'cohort_10y_min_cagr': '.2%'})}
@@ -870,13 +893,19 @@ into one trade a year, every December, into the December listing two years out.
 A once-a-year roll means a single session's prices set the whole year, so the
 choice of month has to be shown not to matter:
 
-{_table(rollmonths, ['roll', 'rolls', 'mean_entry_years', 'entry_years_spread',
+{markdown_table(rollmonths, ['roll', 'rolls', 'mean_entry_years', 'entry_years_spread',
                      'cagr', 'max_drawdown'],
         {'mean_entry_years': '.2f', 'entry_years_spread': '.2f', 'cagr': '.2%',
          'max_drawdown': '.1%'})}
 
 The spread across roll months is small enough that this is a strategy rather
 than a calendar artifact.
+
+The roll *interval* is a separate question, and this report does not answer it:
+everything above rolls once a year because that is what was chosen, not because
+anything tested it. `reports/leaps_roll_monte_carlo_results.md` varies it from
+six to eighteen months, and resamples the whole history in blocks to ask whether
+the ranking here survives a different ordering of the crashes.
 
 Three implementation points the numbers here do not capture. Use a
 **European, cash-settled** index option rather than an American one on an ETF:
@@ -894,7 +923,7 @@ Treasuries, the only bond series this repository has. What separates them is how
 much duration they take — sleeve weight times sleeve leverage. Nothing else in
 this report varies that axis, and it is the largest unhedged bet here.
 
-{_table(duration.sort_values('duration_exposure'),
+{markdown_table(duration.sort_values('duration_exposure'),
         ['bond_weight', 'bond_leverage', 'duration_exposure', 'cagr', 'max_drawdown',
          'cohort_10y_min_cagr', 'cohort_10y_min_cagr_from_2000', 'dot_com_return',
          'rates_shock_2022'],
@@ -924,7 +953,7 @@ ordinary funds by splitting the safe sleeve between long Treasuries and bills.
 The best cell at each blend, among those reaching the return band, ranked by
 worst twenty-year cohort:
 
-{_table(sleeve_frontier,
+{markdown_table(sleeve_frontier,
         ['treasury_share', 'moneyness', 'premium_budget', 'duration_exposure', 'cagr',
          'max_drawdown', 'cohort_20y_min_cagr', 'cohort_30y_min_cagr', 'dot_com_return',
          'rates_shock_2022'],

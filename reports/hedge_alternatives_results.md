@@ -303,6 +303,12 @@ choice of month has to be shown not to matter:
 The spread across roll months is small enough that this is a strategy rather
 than a calendar artifact.
 
+The roll *interval* is a separate question, and this report does not answer it:
+everything above rolls once a year because that is what was chosen, not because
+anything tested it. `reports/leaps_roll_monte_carlo_results.md` varies it from
+six to eighteen months, and resamples the whole history in blocks to ask whether
+the ranking here survives a different ordering of the crashes.
+
 Three implementation points the numbers here do not capture. Use a
 **European, cash-settled** index option rather than an American one on an ETF:
 a deep in-the-money American call is liable to early assignment around

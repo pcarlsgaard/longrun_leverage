@@ -3,10 +3,11 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from letf.options import (LeapsRule, black_scholes_call, break_even_iv_premium, call_delta,
-                          choose_expiry, implied_volatility_proxy, listed_expiries,
-                          simulate_leaps_portfolio, trailing_dividend_yield,
-                          trailing_riskfree)
+from letf.options import (LEDGER_COLUMNS, LeapsRule, black_scholes_call,
+                          break_even_iv_premium, call_delta, choose_expiry,
+                          implied_volatility_proxy, leaps_arrays, listed_expiries,
+                          roll_schedule, simulate_leaps_arrays, simulate_leaps_portfolio,
+                          trailing_dividend_yield, trailing_riskfree)
 
 
 class BlackScholesTests(unittest.TestCase):
@@ -256,3 +257,82 @@ class BreakEvenTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RollScheduleTests(unittest.TestCase):
+    """The schedule is separable from the path, which is why the bootstrap is affordable."""
+
+    def setUp(self):
+        self.closes = pd.bdate_range('2000-01-03', periods=1600)
+        rng = np.random.default_rng(5)
+        steps = rng.normal(.0003, .011, len(self.closes) - 1)
+        self.price = pd.Series(np.r_[100., 100 * np.exp(np.cumsum(steps))], index=self.closes)
+        self.safe = pd.Series(np.full(len(self.closes) - 1, .00015), index=self.closes[1:])
+        self.q = pd.Series(.02, index=self.closes)
+        self.r = pd.Series(.04, index=self.closes)
+        self.vol = pd.Series(.18, index=self.closes)
+        self.rule = LeapsRule(premium_budget=.4)
+
+    def test_schedule_does_not_depend_on_the_price_path(self):
+        other = self.price * np.linspace(1, .1, len(self.price))
+        first, second = (roll_schedule(p.index, self.rule) for p in (self.price, other))
+        np.testing.assert_array_equal(first.starts, second.starts)
+        np.testing.assert_array_equal(first.expiry_days, second.expiry_days)
+
+    def test_supplied_schedule_reproduces_the_default_exactly(self):
+        built = simulate_leaps_portfolio(self.price, self.safe, self.q, self.r, self.vol,
+                                         self.rule, ledger=False)
+        passed = simulate_leaps_portfolio(self.price, self.safe, self.q, self.r, self.vol,
+                                          self.rule, ledger=False,
+                                          schedule=roll_schedule(self.closes, self.rule))
+        np.testing.assert_array_equal(built.to_numpy(), passed.to_numpy())
+
+    def test_schedule_for_another_rule_is_refused(self):
+        other = roll_schedule(self.closes, LeapsRule(premium_budget=.4, roll_at_years=.5))
+        with self.assertRaises(ValueError):
+            simulate_leaps_portfolio(self.price, self.safe, self.q, self.r, self.vol,
+                                     self.rule, schedule=other)
+
+    def test_schedule_for_another_calendar_is_refused(self):
+        shifted = pd.bdate_range('2001-01-03', periods=1600)
+        with self.assertRaises(ValueError):
+            simulate_leaps_portfolio(self.price, self.safe, self.q, self.r, self.vol,
+                                     self.rule, schedule=roll_schedule(shifted, self.rule))
+
+    def test_rolling_sooner_rolls_more_often(self):
+        counts = [len(roll_schedule(self.closes, LeapsRule(premium_budget=.4,
+                                                           roll_at_years=remaining)).starts)
+                  for remaining in (.5, 1., 1.5)]
+        self.assertEqual(counts, sorted(counts))
+
+    def test_roll_positions_strictly_increase(self):
+        for remaining in (.25, .5, 1., 1.5, 1.9):
+            starts = roll_schedule(self.closes, LeapsRule(premium_budget=.4,
+                                                          roll_at_years=remaining)).starts
+            self.assertTrue(np.all(np.diff(starts) > 0), remaining)
+
+    def test_array_core_matches_the_pandas_wrapper(self):
+        nav, exposure, _ = simulate_leaps_portfolio(self.price, self.safe, self.q, self.r,
+                                                    self.vol, self.rule)
+        arrays = leaps_arrays(self.price, self.safe, self.q, self.r, self.vol)
+        navs, exposures, weights, rolls = simulate_leaps_arrays(
+            *arrays, roll_schedule(self.closes, self.rule))
+        np.testing.assert_array_equal(navs, nav.to_numpy())
+        np.testing.assert_array_equal(exposures, exposure.to_numpy())
+        # Option weight and safe weight are the whole portfolio, by construction.
+        self.assertTrue(np.all((weights > 0) & (weights < 1)))
+        self.assertEqual(len(rolls), len(roll_schedule(self.closes, self.rule).starts))
+
+    def test_ledger_records_the_premium_that_survived_to_the_sale(self):
+        _, _, _, rolls = simulate_leaps_arrays(
+            *leaps_arrays(self.price, self.safe, self.q, self.r, self.vol),
+            roll_schedule(self.closes, self.rule))
+        for entry in rolls:
+            self.assertAlmostEqual(entry['exit_premium_ratio'],
+                                   entry['exit_value'] / entry['premium'], 12)
+            self.assertLessEqual(entry['trough_premium_ratio'], entry['exit_premium_ratio'])
+
+    def test_published_ledger_keeps_its_committed_columns(self):
+        _, _, frame = simulate_leaps_portfolio(self.price, self.safe, self.q, self.r,
+                                               self.vol, self.rule)
+        self.assertEqual(list(frame.columns), list(LEDGER_COLUMNS))
