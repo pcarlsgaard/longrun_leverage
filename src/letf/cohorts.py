@@ -32,10 +32,19 @@ __all__ = ['nav_path', 'month_end_mask', 'cohort_windows', 'cohort_cagrs',
 
 
 def nav_path(returns: pd.Series, calendar: pd.DatetimeIndex) -> pd.Series:
-    """Wealth path starting at 1.0 on the session before the first return."""
+    """Wealth path starting at 1.0 on the session before the first return.
+
+    `calendar` must be the full trading calendar, not the window `returns` was
+    computed over: the entry close is the session *before* the first return, so
+    a calendar that starts at that return has nowhere to put it. Passing the
+    restricted window would otherwise index `calendar[-1]` and silently produce
+    a path that starts after it ends.
+    """
     r = returns.dropna()
-    prior = calendar[calendar.get_loc(r.index[0]) - 1]
-    return pd.concat([pd.Series([1.0], index=[prior]), (1 + r).cumprod()])
+    start = calendar.get_loc(r.index[0])
+    if start < 1:
+        raise ValueError('Calendar must contain a session before the first return')
+    return pd.concat([pd.Series([1.0], index=[calendar[start - 1]]), (1 + r).cumprod()])
 
 
 def month_end_mask(index: pd.DatetimeIndex) -> np.ndarray:

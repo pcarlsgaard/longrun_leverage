@@ -10,12 +10,73 @@ import pandas as pd
 from .analysis import CASH, FAMILIES, load_inputs, matched
 from .cohorts import cohort_quantiles, nav_path
 from .falsification import LAGS, level_position, load_price_signals, select_returns, switching_costs
+from .provenance import FLOAT_FORMAT
 
 HORIZONS = (10, 20, 30)
 PERCENTILES = (0.01, 0.10, 0.25, 0.50, 0.75, 0.90, 0.99)
 COSTS = (0, 25)
 SMA_DAYS = 200
 SPREAD_BPS = 50
+
+
+
+LABELS = {'SP500_1X': 'SP500 1x', 'NASDAQ100_1X': 'Nasdaq-100 1x',
+          'SSO_ALWAYS': 'SSO always', 'SSO_SMA_TO_SP500': 'SSO SMA to SP500',
+          'SSO_SMA_TO_TBILL': 'SSO SMA to T-bill',
+          'UPRO_ALWAYS': 'UPRO always', 'UPRO_SMA_TO_SP500': 'UPRO SMA to SP500',
+          'UPRO_SMA_TO_TBILL': 'UPRO SMA to T-bill',
+          'TQQQ_ALWAYS': 'TQQQ always', 'TQQQ_SMA_TO_NASDAQ': 'TQQQ SMA to Nasdaq',
+          'TQQQ_SMA_TO_TBILL': 'TQQQ SMA to T-bill',
+          'TMF_ALWAYS': 'TMF always', 'TMF_SMA_TO_LONG_TREASURY': 'TMF SMA to long Treasury',
+          'TMF_SMA_TO_TBILL': 'TMF SMA to T-bill',
+          'LONG_TREASURY_1X': 'Long Treasury 1x'}
+
+
+def write_summary(root, out):
+    """Render the primary view. Previously committed with no generator at all."""
+    def p(x): return '-' if pd.isna(x) else f'{100 * x:.1f}%'
+    primary = out[(out.lag == 'LAG1') & (out.switch_cost_bps == 0)]
+    order = [s for s in LABELS if s in set(primary.series)]
+    lines = [
+        '# Price-signal cohort outcome distributions', '',
+        'Canonical price-only signal convention; strategy wealth uses total returns. The',
+        f'primary view below uses the {SMA_DAYS}-day price SMA, {SPREAD_BPS} bp financing spread, LAG1',
+        'execution and 0 bp switching cost. Cohorts enter at month-end closes and exit on',
+        'exact calendar anniversaries.', '',
+        '**These percentiles are not a probability distribution.** The windows overlap',
+        'heavily — a 30-year percentile over a 40-year history is built from windows that',
+        'share almost all of their data — so they describe what happened once, not what is',
+        'likely to happen again. Read them alongside `signal_null_model_results.md`, which',
+        'tests whether the timing is distinguishable from chance at all.', '',
+    ]
+    for horizon in HORIZONS:
+        block = primary[primary.horizon_years == horizon].set_index('series')
+        if not len(block):
+            continue
+        count = int(block.cohort_count.max())
+        lines += [f'## {horizon}-year CAGR distribution ({count} cohorts)', '',
+                  '| Strategy | P1 | P10 | P25 | P50 | P75 | P90 | P99 |',
+                  '|---|---:|---:|---:|---:|---:|---:|---:|']
+        for series in order:
+            r = block.loc[series]
+            lines.append(f'| {LABELS[series]} | ' + ' | '.join(
+                p(r[f'p{q}']) for q in (1, 10, 25, 50, 75, 90, 99)) + ' |')
+        lines.append('')
+    lines += [
+        '## Interpretation', '',
+        'The distribution view shows state-dependent leverage acting mainly on the left',
+        'tail: at every horizon the SMA variants lift the low percentiles far more than',
+        'they lift the median, which is what a rule that sits out drawdowns should do.',
+        'TQQQ is the extreme case and the least trustworthy — its always-on 20-year',
+        'distribution is dominated by whether a cohort spans 2000-2002, and its early',
+        'history is proxy data.', '',
+        'What this view cannot show is whether the improvement is timing or simply lower',
+        'average exposure; the matched-exposure controls and the null model address that,',
+        'and neither is settled by the percentiles here.', '',
+        f'The generated CSV also contains LAG2 and {COSTS[-1]} bp switching-cost versions for the same',
+        f'{"/".join(str(h) for h in HORIZONS)}-year horizons.', '',
+    ]
+    (root / 'reports' / 'price_signal_cohort_distribution_summary.md').write_text('\n'.join(lines) + '\n')
 
 
 def percentile_row(series, family, lag, cost, horizon, returns, calendar):
@@ -77,7 +138,8 @@ def run(root: Path):
 
     out = pd.DataFrame(rows)
     path = root / 'reports' / 'price_signal_cohort_percentiles.csv'
-    out.to_csv(path, index=False, float_format='%.12g')
+    out.to_csv(path, index=False, float_format=FLOAT_FORMAT)
+    write_summary(root, out)
     print(f'Wrote {len(out)} cohort-distribution rows to {path}')
     return out
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import platform
@@ -13,6 +12,7 @@ import pandas as pd
 
 from .data import cached_source, fred
 from .cohorts import worst_cagr
+from .provenance import FLOAT_FORMAT, sha
 from .model import calendar_days, matched, metrics, portfolio, wealth
 from .signals import sma_position
 from .pipeline import rolling_outcomes
@@ -217,10 +217,6 @@ def regime_analysis(frame, calendar):
     return pd.DataFrame(rows)
 
 
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def load_inputs(root, offline=False, refresh=False):
     config = json.loads((root/'config.json').read_text())
     manifest_path = root/'reports/portfolio_sma_manifest.json'
@@ -352,12 +348,12 @@ def run(root, offline=False, refresh=False):
                'sma_rolling_summary': sma_rolling, 'sma_length_sensitivity': sma_lengths,
                'sma_financing_sensitivity': sma_finance, 'sma_regime_analysis': regimes}
     for name, rows in outputs.items():
-        pd.concat(rows, ignore_index=True).to_csv(reports/f'{name}.csv', index=False, float_format='%.12g')
+        pd.concat(rows, ignore_index=True).to_csv(reports/f'{name}.csv', index=False, float_format=FLOAT_FORMAT)
     for name, rows in [('portfolio', static_cohorts), ('sma', sma_cohorts)]:
-        pd.concat(rows, ignore_index=True).to_csv(processed/f'{name}_rolling_cohorts.csv', index=False, float_format='%.12g')
-    pd.DataFrame(daily_export).to_csv(processed/'portfolio_sma_daily_returns.csv', index_label='date', float_format='%.12g')
-    pd.DataFrame(state_export).to_csv(processed/'sma_daily_positions.csv', index_label='date', float_format='%.12g')
-    daily[[CASH]].to_csv(processed/'tbill_daily_returns.csv', index_label='date', float_format='%.12g')
+        pd.concat(rows, ignore_index=True).to_csv(processed/f'{name}_rolling_cohorts.csv', index=False, float_format=FLOAT_FORMAT)
+    pd.DataFrame(daily_export).to_csv(processed/'portfolio_sma_daily_returns.csv', index_label='date', float_format=FLOAT_FORMAT)
+    pd.DataFrame(state_export).to_csv(processed/'sma_daily_positions.csv', index_label='date', float_format=FLOAT_FORMAT)
+    daily[[CASH]].to_csv(processed/'tbill_daily_returns.csv', index_label='date', float_format=FLOAT_FORMAT)
     from .analysis_report import write_report
     write_report(root, config, primary_static, primary_sma, pd.concat(sma_cohorts), calendar)
     print(f'Analysis complete: common entry close {calendar[calendar.get_loc(common[0])-1].date()}, through {common[-1].date()}')

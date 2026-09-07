@@ -43,6 +43,7 @@ from .diagnostics import TOP_DAYS, edge_concentration
 from .falsification import load_price_signals
 from .signals import LAGS, level_position
 from .strategy import select_returns, switching_costs
+from .provenance import FLOAT_FORMAT
 
 PERMUTATIONS = 2000
 SEED = 20260907
@@ -192,17 +193,25 @@ def report(out: pd.DataFrame, reports: Path, permutations: int):
         '## Edge concentration', '',
         'A 40-year CAGR gap is a sum of ~10,000 daily log differences. If a few sessions',
         'supply most of it, the gap describes those sessions, not a repeatable edge.', '',
-        '| Strategy | Lag | Total log advantage | Top 1 day | Top 5 | Top 20 | Worst month | Month share |',
+        '| Strategy | Lag | Total log advantage | Top 1 day | Top 5 | Top 20 | Top month | Month share |',
         '|---|---|---:|---:|---:|---:|---|---:|',
     ]
     for _, r in out.sort_values(['lag', 'strategy']).iterrows():
         lines.append(f'| {r.strategy} | {r.lag} | {r.total_log_advantage:.4f} | '
                      f'{pct(r.top1_day_share)} | {pct(r.top5_day_share)} | {pct(r.top20_day_share)} | '
                      f'{r.top_month} | {pct(r.top_month_share)} |')
-    lines += ['', 'Shares are signed fractions of the total advantage, so 39% means those sessions',
-              'produced 39% of the whole gap. Any strategy whose top-20 share approaches or',
-              'exceeds 100% has an advantage that lives entirely in a handful of sessions, and',
-              'its point estimate should not be quoted without this column.', '']
+    lines += ['', '"Top" means most favorable to the sign of the gap: for a positive advantage the',
+              'sessions that produced it, for a negative one the sessions that cost most. Shares',
+              'are fractions of the total, so 60% means one session produced 60% of a whole',
+              '40-year advantage.', '',
+              '**A share above 100% is the important case, not an error.** It means those few',
+              'sessions produced more than the entire gap and the rest of the history was net',
+              'negative — the strategy did not beat its benchmark over the other ~10,000',
+              'sessions. Every row here has a top-20 share above 100%. None of these',
+              'advantages is a property of the strategy across time; each is a property of a',
+              'handful of days, and the largest of them cluster in October 1987, February 2001',
+              'and October 2008. Do not quote a CAGR gap from this repository without this',
+              'column beside it.', '']
     (reports / 'signal_null_model_results.md').write_text('\n'.join(lines) + '\n')
 
 
@@ -227,13 +236,13 @@ def run(root: Path, permutations=PERMUTATIONS, seed=SEED):
             off_label = 'NASDAQ' if under == 'NASDAQ100' else 'SP500'
             always = daily.loc[ix, levered]
             for label, off in ((off_label, f'{under}_1X'), ('TBILL', CASH)):
-                rows.append(assess(daily, ix, f'{fund}_SMA_TO_{label}', p,
+                rows.append(assess(daily, calendar, f'{fund}_SMA_TO_{label}', p,
                                    {0: off, 1: levered}, always,
                                    permutations=permutations, seed=seed))
 
     out = pd.DataFrame(rows)
     reports = root / 'reports'
-    out.to_csv(reports / 'signal_null_model.csv', index=False, float_format='%.10g')
+    out.to_csv(reports / 'signal_null_model.csv', index=False, float_format=FLOAT_FORMAT)
     report(out, reports, permutations)
     (reports / 'signal_null_model_manifest.json').write_text(json.dumps({
         'permutations': permutations, 'seed': seed, 'specifications': SPECIFICATIONS,

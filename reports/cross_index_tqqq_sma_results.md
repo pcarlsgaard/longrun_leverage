@@ -1,36 +1,68 @@
 # TQQQ governed by the S&P 500 price SMA
 
-This experiment tests whether a common S&P 500 price-index SMA can govern Nasdaq leverage. Investment returns remain total-return based. TQQQ rotates either to Nasdaq-100 1x or to 3-month T-bills when the S&P signal is unfavorable. The existing Nasdaq-100 price-SMA rules are retained as matched comparators. No parameters were optimized.
+TQQQ/QQQ or TQQQ/T-bill rotation using the S&P 500 price-index SMA as a common
+equity-risk signal, compared against the otherwise identical rule driven by the
+Nasdaq-100's own SMA. Investment returns remain total-return based. No parameters
+were optimized.
 
 ## Primary 200-day / 50-bp financing results
 
 | Strategy | Lag | Cost | CAGR | Max DD | Sharpe | Leveraged days | Switches/yr |
 |---|---|---:|---:|---:|---:|---:|---:|
-| TQQQ always | LAG1 | 0 bp | 13.46% | -99.98% | 0.52 | 100.00% | 0.00 |
-| Nasdaq SMA -> Nasdaq | LAG1 | 0 bp | 22.79% | -97.86% | 0.59 | 75.45% | 6.84 |
-| Nasdaq SMA -> T-bill | LAG1 | 0 bp | 20.76% | -95.34% | 0.56 | 75.45% | 6.84 |
-| **S&P SMA -> Nasdaq** | **LAG1** | **0 bp** | **24.26%** | **-97.75%** | **0.61** | **75.74%** | **6.54** |
-| **S&P SMA -> T-bill** | **LAG1** | **0 bp** | **22.56%** | **-94.56%** | **0.59** | **75.74%** | **6.54** |
-| Nasdaq SMA -> Nasdaq | LAG2 | 25 bp | 20.46% | -96.46% | 0.56 | 75.44% | 6.84 |
-| Nasdaq SMA -> T-bill | LAG2 | 25 bp | 18.60% | -88.87% | 0.53 | 75.44% | 6.84 |
-| **S&P SMA -> Nasdaq** | **LAG2** | **25 bp** | **24.16%** | **-96.43%** | **0.61** | **75.73%** | **6.54** |
-| **S&P SMA -> T-bill** | **LAG2** | **25 bp** | **23.50%** | **-87.31%** | **0.61** | **75.73%** | **6.54** |
+| TQQQ_ALWAYS | LAG1 | 0 bp | 13.46% | -99.98% | 0.52 | 100.00% | 0.00 |
+| TQQQ_NDX_SMA_TO_NASDAQ | LAG1 | 0 bp | 22.79% | -97.86% | 0.59 | 75.45% | 6.84 |
+| TQQQ_NDX_SMA_TO_TBILL | LAG1 | 0 bp | 20.76% | -95.34% | 0.56 | 75.45% | 6.84 |
+| TQQQ_SP500_SMA_TO_NASDAQ | LAG1 | 0 bp | 24.26% | -97.75% | 0.61 | 75.74% | 6.54 |
+| TQQQ_SP500_SMA_TO_TBILL | LAG1 | 0 bp | 22.56% | -94.56% | 0.59 | 75.74% | 6.54 |
+| TQQQ_NDX_SMA_TO_NASDAQ | LAG2 | 0 bp | 22.53% | -96.25% | 0.59 | 75.44% | 6.84 |
+| TQQQ_NDX_SMA_TO_TBILL | LAG2 | 0 bp | 20.65% | -87.88% | 0.56 | 75.44% | 6.84 |
+| TQQQ_SP500_SMA_TO_NASDAQ | LAG2 | 0 bp | 26.21% | -96.19% | 0.64 | 75.73% | 6.54 |
+| TQQQ_SP500_SMA_TO_TBILL | LAG2 | 0 bp | 25.54% | -86.36% | 0.64 | 75.73% | 6.54 |
+| TQQQ_NDX_SMA_TO_NASDAQ | LAG1 | 25 bp | 20.71% | -98.29% | 0.56 | 75.45% | 6.84 |
+| TQQQ_NDX_SMA_TO_TBILL | LAG1 | 25 bp | 18.71% | -96.03% | 0.53 | 75.45% | 6.84 |
+| TQQQ_SP500_SMA_TO_NASDAQ | LAG1 | 25 bp | 22.25% | -97.88% | 0.59 | 75.74% | 6.54 |
+| TQQQ_SP500_SMA_TO_TBILL | LAG1 | 25 bp | 20.57% | -95.33% | 0.56 | 75.74% | 6.54 |
+| TQQQ_NDX_SMA_TO_NASDAQ | LAG2 | 25 bp | 20.46% | -96.46% | 0.56 | 75.44% | 6.84 |
+| TQQQ_NDX_SMA_TO_TBILL | LAG2 | 25 bp | 18.60% | -88.87% | 0.53 | 75.44% | 6.84 |
+| TQQQ_SP500_SMA_TO_NASDAQ | LAG2 | 25 bp | 24.16% | -96.43% | 0.61 | 75.73% | 6.54 |
+| TQQQ_SP500_SMA_TO_TBILL | LAG2 | 25 bp | 23.50% | -87.31% | 0.61 | 75.73% | 6.54 |
 
-## Robustness across the prespecified grid
+## How many of these comparisons are independent?
 
-Matching signal source while holding the off-sleeve, SMA length, financing spread, execution lag, and switching cost fixed produces 144 pairwise comparisons. The S&P signal has higher CAGR than the Nasdaq signal in **138/144 (95.8%)** comparisons.
+Holding the off-sleeve, SMA length, financing spread, execution lag and switching
+cost fixed and varying only the signal index gives 144 paired comparisons. The
+S&P signal has the higher CAGR in 138/144 (95.83%) of them.
 
-- 150-day SMA: S&P signal wins 87.5% of comparisons.
-- 200-day SMA: S&P signal wins 100%.
-- 250-day SMA: S&P signal wins 100%.
+**That fraction is not 144 pieces of evidence.**
+At 200 days the two signals hold the same state on 89.75% of sessions, so
+these are one pair of highly correlated signal paths re-scored under nuisance
+parameters, over one history. The effective sample is one comparison. A win rate
+near 100% across a parameter grid tells you the result is insensitive to those
+parameters; it says nothing about how often the conclusion would hold on data
+this study has not seen.
 
-At 200 days the S&P and Nasdaq SMA states agree on about **89.75%** of sessions, so the result is driven by a relatively small set of disagreement dates rather than a radically different average leverage budget.
+| SMA length | S&P signal wins | Comparisons |
+|---|---:|---:|
+| 150 days | 87.50% | 48 |
+| 200 days | 100.00% | 48 |
+| 250 days | 100.00% | 48 |
 
-The 200-day rule is more execution-stable than the visually strongest 250-day full-history result. At 50-bp financing and 25-bp switching cost, S&P-SMA -> Nasdaq CAGR is 22.25%/24.16% under LAG1/LAG2, while the 250-day version is 24.61%/20.48%. This argues against selecting 250 days based on its LAG1 result.
+## The subperiod evidence, which is what actually varies
 
-## Historical subperiod caution
+LAG2, 25 bp, rotating to Nasdaq 1x:
 
-The S&P signal is not uniformly superior within every era. At 200 days it materially beats the Nasdaq signal in 1987-1999 and 2010-2019, is close in 2000-2009, but **loses substantially in 2020-latest**, when the Nasdaq's own trend contains useful asset-specific information. Thus the result supports a common market-risk regime signal but does not establish that the S&P signal dominates Nasdaq-specific information at all times.
+| Period | Nasdaq signal | S&P signal | Difference |
+|---|---:|---:|---:|
+| 1987_1999 | 39.41% | 53.52% | +14.11 pp |
+| 2000_2009 | -15.61% | -16.43% | -0.82 pp |
+| 2010_2019 | 27.70% | 35.35% | +7.64 pp |
+| 2020_latest | 43.06% | 32.22% | -10.84 pp |
+
+The S&P signal is not uniformly superior. It wins strongly in the earliest and
+the 2010s blocks, is roughly a tie in 2000-2009, and loses substantially in
+2020-latest, when the Nasdaq trend carried useful asset-specific information.
+Four blocks, split two-one-one, is the honest sample size behind the headline
+win rate above.
 
 ## Long-horizon cohort distributions: LAG2 / 25 bp
 
@@ -38,26 +70,40 @@ The S&P signal is not uniformly superior within every era. At 200 days it materi
 
 | Strategy | P1 | P10 | P25 | P50 | P75 | P90 | P99 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| S&P SMA -> Nasdaq | 6.94% | 13.94% | 16.25% | 19.28% | 24.46% | 26.33% | 31.17% |
-| **S&P SMA -> T-bill** | **10.42%** | **17.26%** | **19.19%** | **21.70%** | 23.23% | 26.08% | 28.77% |
-| Nasdaq SMA -> Nasdaq | 3.87% | 10.09% | 12.57% | 15.32% | 20.61% | 25.02% | 30.83% |
-| Nasdaq SMA -> T-bill | 5.77% | 11.50% | 14.70% | 17.02% | 19.13% | 22.41% | 27.23% |
+| TQQQ_NDX_SMA_TO_NASDAQ | 3.87% | 10.09% | 12.57% | 15.32% | 20.61% | 25.02% | 30.83% |
+| TQQQ_NDX_SMA_TO_TBILL | 5.77% | 11.50% | 14.70% | 17.02% | 19.13% | 22.41% | 27.23% |
+| TQQQ_SP500_SMA_TO_NASDAQ | 6.94% | 13.94% | 16.25% | 19.28% | 24.46% | 26.33% | 31.17% |
+| TQQQ_SP500_SMA_TO_TBILL | 10.42% | 17.26% | 19.19% | 21.70% | 23.23% | 26.08% | 28.77% |
 
 ### 30-year CAGR
 
 | Strategy | P1 | P10 | P25 | P50 | P75 | P90 | P99 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| S&P SMA -> Nasdaq | 18.38% | 20.18% | 22.05% | 24.09% | 25.52% | 27.35% | 28.21% |
-| **S&P SMA -> T-bill** | **19.37%** | **20.88%** | **22.72%** | **24.51%** | **26.18%** | **27.72%** | **28.52%** |
-| Nasdaq SMA -> Nasdaq | 12.61% | 13.61% | 18.30% | 20.98% | 22.90% | 24.03% | 25.33% |
-| Nasdaq SMA -> T-bill | 11.44% | 12.13% | 17.81% | 20.79% | 22.71% | 24.30% | 25.59% |
+| TQQQ_NDX_SMA_TO_NASDAQ | 12.61% | 13.61% | 18.30% | 20.98% | 22.90% | 24.03% | 25.33% |
+| TQQQ_NDX_SMA_TO_TBILL | 11.44% | 12.13% | 17.81% | 20.79% | 22.71% | 24.30% | 25.59% |
+| TQQQ_SP500_SMA_TO_NASDAQ | 18.38% | 20.18% | 22.05% | 24.09% | 25.52% | 27.35% | 28.21% |
+| TQQQ_SP500_SMA_TO_TBILL | 19.37% | 20.88% | 22.72% | 24.51% | 26.18% | 27.72% | 28.52% |
 
-These cohorts overlap heavily and are descriptive historical outcomes, not independent probability draws. Early Nasdaq history also retains the existing proxy limitations.
+These cohorts overlap heavily. They are descriptive historical outcomes, not
+independent probability draws, and early Nasdaq history retains the existing
+proxy limitations.
 
 ## Interpretation
 
-The experiment supports the idea that leverage intensity can reasonably be governed by a **common broad-equity risk regime** rather than requiring an asset-specific trend signal. The S&P 500 price SMA is particularly attractive because the same parsimonious signal can govern both S&P and Nasdaq leverage.
+The experiment is consistent with leverage intensity being governable by a common
+broad-equity risk regime rather than requiring an asset-specific trend signal, and
+the same parsimonious signal governing both S&P and Nasdaq leverage is an
+attractive property if it holds. It is not established here.
 
-For TQQQ specifically, the off-sleeve choice is less clear from full-history CAGR alone. Staying in Nasdaq 1x preserves more upside, but T-bills materially improve drawdowns. Under the conservative LAG2/25-bp implementation, S&P-SMA -> T-bills has a much better 20-year lower tail and, unusually, slightly higher 30-year CAGR at every reported percentile than S&P-SMA -> Nasdaq. That makes the safe-asset version worthy of equal or greater attention for TQQQ, despite the earlier S&P-family finding that remaining in 1x equity was generally preferable.
+Two things stop that conclusion from being a finding. The 2020-latest block
+reverses in favor of the Nasdaq-specific signal, which is the falsification
+caveat. And the grid win rate is one comparison, not a hundred and forty-four.
+`letf.null_model` tests the underlying strategies against a matched-exposure
+random-timing null; read that before treating any CAGR gap here as an edge.
 
-The key falsification caveat is the 2020-latest reversal in favor of the Nasdaq-specific signal. A common S&P signal is therefore a strong parsimonious candidate, not a demonstrated universal optimum.
+For TQQQ specifically the off-sleeve choice is genuinely unresolved by full-history
+CAGR. Staying in Nasdaq 1x preserves more upside; T-bills materially improve
+drawdowns and the long-horizon lower tail. That makes the safe-asset version worth
+equal attention for TQQQ, despite the earlier S&P-family finding that remaining in
+1x equity was generally preferable.
+

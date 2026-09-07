@@ -29,8 +29,6 @@ Price and legacy total-return SMA states differ on **2.85%** of matched trading 
 - 1987 LAG1: legacy first risk-off 1987-10-16; price-only 1987-10-15.
 - 1987 LAG2: legacy first risk-off 1987-10-16; price-only 1987-10-15.
 
-The one-session earlier 1987 price-index cross is economically material: under LAG2 the revised price signal avoids the extreme Black Monday timing penalty that dominated the earlier total-return-signal delay result.
-
 ## Revised regime-signal ranking (LAG2, 25 bp)
 
 | Signal | CAGR | Equal-fee matched-leverage timing Δ |
@@ -40,12 +38,52 @@ The one-session earlier 1987 price-index cross is economically material: under L
 | SP500_1X | 11.26% | +0.00 pp |
 | UPRO_ALWAYS | 13.70% | +0.00 pp |
 
+## Where the difference comes from
+
+Price and legacy total-return SMA states differ on only 2.85% of sessions,
+so the aggregate gap is produced by a small set of disagreement dates rather than
+by a different average leverage budget. The stress table above names them.
+
+The single most important is 1987. Under LAG2 the legacy total-return signal is
+still leveraged into the 1987-10-19 crash while the price signal is already out,
+because the price index crossed its moving average one session earlier. That one
+session, not a broad improvement in timing, is what separates the two LAG2 CAGRs
+in the table above (16.82% legacy versus 19.08% revised).
+
+### Concentration of the revised advantage over always-on UPRO
+
+| Lag | Total log advantage | Top 1 day | Top 5 days | Top 20 days | Largest month | Month share |
+|---|---:|---:|---:|---:|---|---:|
+| LAG1 | 0.8973 | 80.96% | 191.70% | 252.34% | 1987-10 | 76.59% |
+| LAG2 | 1.1906 | 60.80% | 144.25% | 189.53% | 1987-10 | 47.96% |
+
+These shares are fractions of the entire multi-decade advantage. Read them before
+quoting the CAGR gap: an advantage concentrated in a handful of sessions is a
+statement about those sessions, and its out-of-sample value is far less certain
+than the point estimate suggests. `letf.null_model` tests the same strategies
+against a matched-exposure random-timing null.
+
 ## Interpretation
 
-The prior qualitative conclusion **survives**, but important magnitudes change. Price-only SMA timing remains the strongest parsimonious regime trigger in the revised comparison, and the 20-day absolute-volatility rule remains a weaker positive comparator. Relative volatility, efficiency, trend-quality, low-churn and Awesome Oscillator rules do not establish robust matched-leverage value.
+This is a methodological correction, not an optimized model, and not evidence that
+the corrected rule works. The prior qualitative conclusion survives the correction:
+price-only SMA timing remains the strongest parsimonious regime trigger in this
+comparison, the 20-day absolute-volatility rule remains a weaker positive
+comparator, and relative volatility, efficiency, trend-quality, low-churn and
+Awesome Oscillator rules do not establish robust matched-leverage value.
 
-The corrected SMA result is still broad rather than knife-edge: 150/200/250-day price SMAs all identify useful leverage-management states in parts of the grid, but their execution sensitivity differs materially. The 200-day rule is not uniquely optimal, and the 250-day rule can be stronger under LAG1 while weaker under LAG2. This reinforces the interpretation of a slow trend/regime phenomenon rather than a precisely optimized cutoff.
+The corrected SMA result is broad rather than knife-edge: 150/200/250-day price
+SMAs all identify useful leverage states in parts of the grid, but their execution
+sensitivity differs materially, and the 250-day rule can be stronger under LAG1
+while weaker under LAG2. That is consistent with a slow regime phenomenon rather
+than a precisely optimized cutoff — and equally consistent with a grid large
+enough to contain favorable cells by chance.
 
-The price-only correction therefore leaves the central thesis **directionally unchanged but quantitatively revised**: distributions belong in investment wealth, not in the signal. Signal-source choice can materially affect individual transition dates, especially around extreme events, even though price and total-return states disagree on only a small fraction of days.
+So the correction leaves the central thesis directionally unchanged but
+quantitatively revised: distributions belong in investment wealth, not in the
+signal. Signal-source choice can materially affect individual transition dates,
+especially around extreme events, even though the states disagree on only a small
+fraction of days. The structured CSVs and `src/letf/price_signal_revision.py`
+reproduce the corrected battery.
 
-This remains a methodological correction and falsification exercise, not an optimized model. The structured CSVs and `src/letf/price_signal_revision.py` reproduce the corrected battery.
+AO note: AO included: complete positive high/low observations in verified frozen S&P archive; no downloads.

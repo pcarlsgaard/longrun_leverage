@@ -6,26 +6,26 @@ Frozen sample: **1986-09-26–2026-09-02**. Original daily histories, funding, f
 
 | series | lag | cost_bps | cagr | max_drawdown | terminal_multiple | average_reserve_weight | average_effective_equity_exposure |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| NO_RESERVE | LAG1 | 0 | 19.59% | -74.49% | 1266.7687 | 0.00% | 2.5640 |
-| FIXED_90_10 | LAG1 | 0 | 18.55% | -68.51% | 894.7846 | 9.85% | 2.3156 |
-| FIXED_85_15 | LAG1 | 0 | 17.98% | -65.15% | 736.6465 | 14.78% | 2.1910 |
-| HWM_RESERVE | LAG1 | 0 | 19.52% | -74.31% | 1237.5309 | 1.33% | 2.5285 |
-| ASYMMETRIC_RESERVE_BAND | LAG1 | 0 | 19.20% | -73.77% | 1112.1419 | 3.80% | 2.4623 |
-| NO_RESERVE | LAG1 | 25 | 17.88% | -79.48% | 712.3039 | 0.00% | 2.5640 |
-| FIXED_90_10 | LAG1 | 25 | 17.03% | -74.07% | 533.6389 | 9.85% | 2.3156 |
-| FIXED_85_15 | LAG1 | 25 | 16.55% | -70.97% | 452.3424 | 14.78% | 2.1910 |
-| HWM_RESERVE | LAG1 | 25 | 17.86% | -79.34% | 707.1841 | 1.21% | 2.5320 |
-| ASYMMETRIC_RESERVE_BAND | LAG1 | 25 | 17.51% | -78.89% | 628.0842 | 3.80% | 2.4623 |
-| NO_RESERVE | LAG2 | 0 | 16.82% | -78.24% | 496.5337 | 0.00% | 2.5640 |
-| FIXED_90_10 | LAG2 | 0 | 16.36% | -71.12% | 424.1279 | 9.98% | 2.3133 |
-| FIXED_85_15 | LAG2 | 0 | 16.02% | -67.51% | 377.4377 | 14.95% | 2.1879 |
-| HWM_RESERVE | LAG2 | 0 | 16.89% | -76.34% | 508.6846 | 1.27% | 2.5311 |
-| ASYMMETRIC_RESERVE_BAND | LAG2 | 0 | 16.95% | -71.89% | 520.1531 | 3.40% | 2.4768 |
-| NO_RESERVE | LAG2 | 25 | 15.15% | -78.28% | 279.2008 | 0.00% | 2.5640 |
-| FIXED_90_10 | LAG2 | 25 | 14.86% | -71.12% | 253.0352 | 9.98% | 2.3133 |
-| FIXED_85_15 | LAG2 | 25 | 14.61% | -67.51% | 231.8777 | 14.95% | 2.1879 |
-| HWM_RESERVE | LAG2 | 25 | 15.26% | -76.36% | 289.9786 | 1.15% | 2.5346 |
-| ASYMMETRIC_RESERVE_BAND | LAG2 | 25 | 15.29% | -74.38% | 293.7996 | 3.40% | 2.4768 |
+| NO_RESERVE | LAG1 | 0 | 18.20% | -75.46% | 795.5022 | 0.00% | 2.5149 |
+| FIXED_90_10 | LAG1 | 0 | 17.30% | -70.32% | 584.4256 | 9.85% | 2.2713 |
+| FIXED_85_15 | LAG1 | 0 | 16.79% | -67.72% | 491.0818 | 14.78% | 2.1491 |
+| HWM_RESERVE | LAG1 | 0 | 18.20% | -75.28% | 795.5328 | 1.19% | 2.4837 |
+| ASYMMETRIC_RESERVE_BAND | LAG1 | 0 | 17.88% | -74.72% | 713.6567 | 3.57% | 2.4186 |
+| NO_RESERVE | LAG1 | 25 | 16.29% | -80.36% | 413.9133 | 0.00% | 2.5149 |
+| FIXED_90_10 | LAG1 | 25 | 15.59% | -75.04% | 325.1848 | 9.85% | 2.2713 |
+| FIXED_85_15 | LAG1 | 25 | 15.18% | -71.98% | 282.4887 | 14.78% | 2.1491 |
+| HWM_RESERVE | LAG1 | 25 | 16.33% | -80.21% | 419.8653 | 1.07% | 2.4873 |
+| ASYMMETRIC_RESERVE_BAND | LAG1 | 25 | 15.98% | -79.76% | 372.4929 | 3.57% | 2.4186 |
+| NO_RESERVE | LAG2 | 0 | 19.08% | -73.29% | 1066.7310 | 0.00% | 2.5147 |
+| FIXED_90_10 | LAG2 | 0 | 18.09% | -68.59% | 764.5124 | 9.91% | 2.2700 |
+| FIXED_85_15 | LAG2 | 0 | 17.54% | -66.00% | 634.1415 | 14.86% | 2.1473 |
+| HWM_RESERVE | LAG2 | 0 | 19.09% | -73.09% | 1070.5076 | 1.24% | 2.4823 |
+| ASYMMETRIC_RESERVE_BAND | LAG2 | 0 | 18.95% | -72.45% | 1021.2192 | 3.71% | 2.4158 |
+| NO_RESERVE | LAG2 | 25 | 17.14% | -75.41% | 555.0383 | 0.00% | 2.5147 |
+| FIXED_90_10 | LAG2 | 25 | 16.36% | -70.82% | 425.1604 | 9.91% | 2.2700 |
+| FIXED_85_15 | LAG2 | 25 | 15.92% | -68.26% | 364.5062 | 14.86% | 2.1473 |
+| HWM_RESERVE | LAG2 | 25 | 17.18% | -75.22% | 561.4664 | 1.16% | 2.4847 |
+| ASYMMETRIC_RESERVE_BAND | LAG2 | 25 | 17.03% | -74.61% | 533.7722 | 3.71% | 2.4158 |
 
 NO_RESERVE means `UPRO_SMA_TO_SP500` or `SSO_SMA_TO_SP500`, as identified by the fund column. `FIXED_90_10` and `FIXED_85_15` are aliases for `STATIC_RESERVE_10` and `STATIC_RESERVE_15`. HWM_RESERVE and ASYMMETRIC_RESERVE_BAND use staged recovery deployment. HWM_DRAWDOWN and BAND_DRAWDOWN are separate deployment sensitivities, never combined with staging.
 
@@ -33,10 +33,10 @@ NO_RESERVE means `UPRO_SMA_TO_SP500` or `SSO_SMA_TO_SP500`, as identified by the
 
 | series | average_reserve | rounded_fixed_reserve | dynamic_cagr | fixed_cagr | dynamic_to_fixed_terminal_ratio | dynamic_average_effective_exposure | constant_leverage_cagr |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| HWM_RESERVE | 0.0115 | 0.0000 | 0.1526 | 0.1515 | 1.0386 | 2.5346 | 0.1441 |
-| ASYMMETRIC_RESERVE_BAND | 0.0340 | 0.0500 | 0.1529 | 0.1504 | 1.0903 | 2.4768 | 0.1443 |
-| HWM_DRAWDOWN | 0.0672 | 0.0500 | 0.1523 | 0.1504 | 1.0660 | 2.4002 | 0.1444 |
-| BAND_DRAWDOWN | 0.0727 | 0.0500 | 0.1516 | 0.1504 | 1.0418 | 2.3848 | 0.1444 |
+| HWM_RESERVE | 0.0116 | 0.0000 | 0.1718 | 0.1714 | 1.0116 | 2.4847 | 0.1443 |
+| ASYMMETRIC_RESERVE_BAND | 0.0371 | 0.0500 | 0.1703 | 0.1677 | 1.0912 | 2.4158 | 0.1444 |
+| HWM_DRAWDOWN | 0.0681 | 0.0500 | 0.1696 | 0.1677 | 1.0649 | 2.3514 | 0.1443 |
+| BAND_DRAWDOWN | 0.0828 | 0.1000 | 0.1705 | 0.1636 | 1.2648 | 2.3166 | 0.1441 |
 
 Matching uses the full-sample mean reserve, rounded half-up to 0/5/10/15/20% etc. This is an ex-post diagnostic, not a deployable forecast or parameter optimization. The fixed target and its realized mean differ through drift. Equal cash allocation is not equal risk: state-dependent exposure, volatility and drawdowns remain different. Constant leverage uses the dynamic policy’s mean effective exposure with the original inferred funding+spread and the same fund fee; no core return history is rebuilt. Its daily reset is synthetic and incurs no additional investor state-switch fee.
 
@@ -44,24 +44,24 @@ Matching uses the full-sample mean reserve, rounded half-up to 0/5/10/15/20% etc
 
 **The complex reserve rules do not establish robust full-cycle value.** Keep the no-reserve SMA rule as the parsimonious growth baseline. A fixed reserve is an interpretable choice when deliberately accepting lower exposure and smaller drawdowns, but that is a different objective from demonstrating superior geometric wealth. Staging is a deployment mechanism, not a separately funded reserve architecture.
 
-At **UPRO / LAG2 / 25 bp**, HWM CAGR is **15.26%** and band CAGR **15.29%**, versus **15.15%** without reserve: improvements of only **0.11 / 0.15 percentage points/year**. The favorable headline does not persist across execution assumptions, the lower-leverage sleeve and distinct historical cycles.
+At **UPRO / LAG2 / 25 bp**, HWM CAGR is **17.18%** and band CAGR **17.03%**, versus **17.14%** without reserve: improvements of only **0.03 / -0.11 percentage points/year**. The favorable headline does not persist across execution assumptions, the lower-leverage sleeve and distinct historical cycles.
 
-1. **Does a reserve improve long-run wealth? Only conditionally.** UPRO LAG2/25 bp terminal wealth rises 3.9% with HWM and 5.2% with the band. For SSO under the same assumptions, CAGR is 12.96% / 12.65%, versus 13.00% without reserve. LAG1/zero-cost dynamic reserve rules also fail to improve on no reserve.
+1. **Does a reserve improve long-run wealth? Only conditionally.** UPRO LAG2/25 bp terminal wealth rises 1.2% with HWM and -3.8% with the band. For SSO under the same assumptions, CAGR is 13.63% / 13.32%, versus 13.66% without reserve. LAG1/zero-cost dynamic reserve rules also fail to improve on no reserve.
 
 2. **Is it more than fixed cash? Some UPRO timing value appears, but it is not robust.** The exact-average-target diagnostic below supplements the prespecified 5-point rounding. Exact matching sets the fixed target to the observed dynamic mean, without fitting returns; drift means realized average weights remain approximate. Neither comparison is exact risk matching.
 
 | series | dynamic_cagr | exact_average_fixed_cagr | dynamic_to_exact_average_fixed_terminal_ratio |
 | --- | --- | --- | --- |
-| HWM_RESERVE | 0.1526 | 0.1513 | 1.0444 |
-| ASYMMETRIC_RESERVE_BAND | 0.1529 | 0.1509 | 1.0746 |
-| HWM_DRAWDOWN | 0.1523 | 0.1499 | 1.0861 |
-| BAND_DRAWDOWN | 0.1516 | 0.1497 | 1.0686 |
+| HWM_RESERVE | 0.1718 | 0.1706 | 1.0403 |
+| ASYMMETRIC_RESERVE_BAND | 0.1703 | 0.1687 | 1.0547 |
+| HWM_DRAWDOWN | 0.1696 | 0.1663 | 1.1185 |
+| BAND_DRAWDOWN | 0.1705 | 0.1651 | 1.2033 |
 
-3. **Does HWM retain bull upside? Yes, mostly because it holds very little reserve.** It averages only 1.15% bills, versus 9.98% for fixed 90/10. The gain cap is rarely binding, and long underwater periods prevent new harvesting. HWM therefore preserves upside at the cost of often lacking meaningful dry powder.
+3. **Does HWM retain bull upside? Yes, mostly because it holds very little reserve.** It averages only 1.16% bills, versus 9.91% for fixed 90/10. The gain cap is rarely binding, and long underwater periods prevent new harvesting. HWM therefore preserves upside at the cost of often lacking meaningful dry powder.
 
 4. **Are recoveries shorter? Mainly in 1987.** The own-HWM recovery dates improve sharply there, but by only days to weeks in most later episodes. Both staged architectures have zero bills at the 2002 trough, and HWM also has zero at the 2009 trough. A wealth ratio above one in those episodes can simply carry forward an earlier gain.
 
-5. **Is staging better than drawdown buying? No stable dominance.** UPRO LAG2/25 bp staged versus drawdown HWM CAGR is 15.26% versus 15.23%; band is 15.29% versus 15.16%. SSO band drawdown deployment beats its staged version, while both lag no reserve. Hold-only controls confirm that leaving accumulated cash unused is costly; that does not prove the particular deployment timing is optimal.
+5. **Is staging better than drawdown buying? No stable dominance.** UPRO LAG2/25 bp staged versus drawdown HWM CAGR is 17.18% versus 16.96%; band is 17.03% versus 17.05%. SSO band drawdown deployment beats its staged version, while both lag no reserve. Hold-only controls confirm that leaving accumulated cash unused is costly; that does not prove the particular deployment timing is optimal.
 
 6. **Does it reconstruct risk capacity? When cash survives, yes; reliably across crashes, no.** Dry-powder ratios and marked deployed-lot wealth quantify the capacity, with adverse-state deployment limited to 1×. Repeated favorable episodes can spend the reserve before the eventual trough. The large 1987 band effect also partly comes from its initial 10% reserve, whereas HWM starts with zero.
 
@@ -69,43 +69,43 @@ At **UPRO / LAG2 / 25 bp**, HWM CAGR is **15.26%** and band CAGR **15.29%**, ver
 
 | series | episodes | median_no_reserve_cagr | median_reserve_cagr | median_cagr_sacrifice_pp | cumulative_log_growth_foregone |
 | --- | --- | --- | --- | --- | --- |
-| NO_RESERVE | 24 | 0.3954 | 0.3954 | 0.0000 | 0.0000 |
-| FIXED_90_10 | 24 | 0.3954 | 0.3620 | 2.9341 | 0.7069 |
-| FIXED_85_15 | 24 | 0.3954 | 0.3452 | 4.4362 | 1.0722 |
-| HWM_RESERVE | 24 | 0.3954 | 0.3954 | 0.0000 | 0.0315 |
-| ASYMMETRIC_RESERVE_BAND | 24 | 0.3954 | 0.4005 | 0.0000 | 0.1278 |
-| HWM_DRAWDOWN | 24 | 0.3954 | 0.3707 | 1.3485 | 0.4424 |
-| BAND_DRAWDOWN | 24 | 0.3954 | 0.3781 | 1.7506 | 0.4988 |
+| NO_RESERVE | 27 | 0.3838 | 0.3838 | 0.0000 | 0.0000 |
+| FIXED_90_10 | 27 | 0.3838 | 0.3502 | 3.2628 | 0.7011 |
+| FIXED_85_15 | 27 | 0.3838 | 0.3333 | 4.9160 | 1.0645 |
+| HWM_RESERVE | 27 | 0.3838 | 0.3842 | 0.0000 | -0.0054 |
+| ASYMMETRIC_RESERVE_BAND | 27 | 0.3838 | 0.4014 | 0.0000 | 0.0568 |
+| HWM_DRAWDOWN | 27 | 0.3838 | 0.3708 | 1.4605 | 0.4319 |
+| BAND_DRAWDOWN | 27 | 0.3838 | 0.3522 | 1.9788 | 0.5058 |
 
 8. **Does recovery repay the cost? Generally not in the later staged-reserve cycles.** The following local-cycle accounting equalizes starting wealth at the previous named crash’s underlying recovery, then includes all accumulation up to the next peak. The first cycle starts at sample entry. It removes inherited dollar advantages without resetting reserve policy state. At three years, HWM repays the 1987 shortfall but not the 2000, 2020 or 2022 shortfalls; 2008 has essentially no local reserve activity. The band also fails to repay 2000, 2020 and 2022. Near-zero costs and negative costs have undefined payback ratios.
 
 | series | event | cycle_local_recovery_multiplier | cycle_local_reserve_payback_ratio | dry_powder_ratio | reserve_recovery_days | no_reserve_recovery_days |
 | --- | --- | --- | --- | --- | --- | --- |
-| HWM_RESERVE | 1987 | 1.0677 | 14.0222 | 0.1137 | 2817 | 2878 |
-| HWM_RESERVE | 2000_2002 | 0.9825 | 0.0000 | 0.0000 | 3871 | 3873 |
-| HWM_RESERVE | 2007_2009 | 1.0000 | nan | 0.0000 | 1528 | 1530 |
-| HWM_RESERVE | 2020 | 0.9872 | -0.3679 | 0.0083 | 156 | 156 |
-| HWM_RESERVE | 2022 | 0.9960 | 0.8725 | 0.0143 | 615 | 630 |
-| ASYMMETRIC_RESERVE_BAND | 1987 | 1.1911 | 5.3756 | 0.4037 | 2293 | 2878 |
-| ASYMMETRIC_RESERVE_BAND | 2000_2002 | 0.9283 | 0.0000 | 0.0000 | 3870 | 3873 |
-| ASYMMETRIC_RESERVE_BAND | 2007_2009 | 1.0240 | nan | 0.0066 | 1527 | 1530 |
-| ASYMMETRIC_RESERVE_BAND | 2020 | 0.9386 | 0.0166 | 0.0775 | 154 | 156 |
-| ASYMMETRIC_RESERVE_BAND | 2022 | 0.9634 | 0.4541 | 0.0208 | 614 | 630 |
+| HWM_RESERVE | 1987 | 1.0292 | 5.8093 | 0.0809 | 658 | 679 |
+| HWM_RESERVE | 2000_2002 | 0.9907 | 0.0000 | 0.0000 | 3836 | 3836 |
+| HWM_RESERVE | 2007_2009 | 1.0000 | nan | 0.0000 | 1493 | 1493 |
+| HWM_RESERVE | 2020 | 0.9920 | 0.4882 | 0.0166 | 158 | 162 |
+| HWM_RESERVE | 2022 | 1.0029 | 1.1256 | 0.0134 | 630 | 632 |
+| ASYMMETRIC_RESERVE_BAND | 1987 | 1.0689 | 3.2034 | 0.1754 | 651 | 679 |
+| ASYMMETRIC_RESERVE_BAND | 2000_2002 | 0.9581 | -0.0000 | 0.0000 | 3806 | 3836 |
+| ASYMMETRIC_RESERVE_BAND | 2007_2009 | 1.0262 | nan | 0.0062 | 1463 | 1493 |
+| ASYMMETRIC_RESERVE_BAND | 2020 | 0.9511 | 0.4153 | 0.0704 | 156 | 162 |
+| ASYMMETRIC_RESERVE_BAND | 2022 | 1.0029 | 1.0844 | 0.0227 | 615 | 632 |
 
 9. **Are results consistent across crises? No.** 1987 supplies much of the surviving staged reserve advantage. The 2010-onward comparison loses relative wealth for both staged rules:
 
 | series | period | terminal_ratio_vs_no_reserve |
 | --- | --- | --- |
-| HWM_RESERVE | 1987_1999 | 1.0427 |
+| HWM_RESERVE | 1987_1999 | 1.0118 |
 | HWM_RESERVE | 2000_2009 | 1.0009 |
-| HWM_RESERVE | 2010_2019 | 0.9911 |
-| HWM_RESERVE | 2020_latest | 0.9990 |
-| HWM_RESERVE | 2010_latest | 0.9900 |
-| ASYMMETRIC_RESERVE_BAND | 1987_1999 | 1.0850 |
-| ASYMMETRIC_RESERVE_BAND | 2000_2009 | 1.0277 |
-| ASYMMETRIC_RESERVE_BAND | 2010_2019 | 0.9495 |
-| ASYMMETRIC_RESERVE_BAND | 2020_latest | 0.9788 |
-| ASYMMETRIC_RESERVE_BAND | 2010_latest | 0.9294 |
+| HWM_RESERVE | 2010_2019 | 0.9861 |
+| HWM_RESERVE | 2020_latest | 1.0092 |
+| HWM_RESERVE | 2010_latest | 0.9951 |
+| ASYMMETRIC_RESERVE_BAND | 1987_1999 | 0.9679 |
+| ASYMMETRIC_RESERVE_BAND | 2000_2009 | 1.0299 |
+| ASYMMETRIC_RESERVE_BAND | 2010_2019 | 0.9269 |
+| ASYMMETRIC_RESERVE_BAND | 2020_latest | 1.0206 |
+| ASYMMETRIC_RESERVE_BAND | 2010_latest | 0.9461 |
 
 10. **Do gains survive execution delay and costs? The small UPRO LAG2 gain does survive 10–25 bp, but it is not invariant to lag or leverage.** The complete grid includes 50 bp and reports both direct charged-cost drag and endogenous changes in policy decisions.
 
@@ -113,8 +113,8 @@ At **UPRO / LAG2 / 25 bp**, HWM CAGR is **15.26%** and band CAGR **15.29%**, ver
 
 | fund | min | max |
 | --- | --- | --- |
-| SSO | 0.1294 | 0.1298 |
-| UPRO | 0.1520 | 0.1530 |
+| SSO | 0.1361 | 0.1364 |
+| UPRO | 0.1716 | 0.1719 |
 
 12. **Conclusion: the added complexity is not justified by this experiment.** No reserve is the best-supported baseline for the stated geometric-growth objective. Fixed reserve is the clearer alternative for an explicit capital-preservation objective. Do not market either as free dry powder, and do not infer future performance from five overlapping historical crisis narratives.
 
@@ -124,34 +124,34 @@ These monthly cohorts start with fresh $1, each rule’s prescribed initial rese
 
 | series | fund | horizon_years | cohorts | min_cagr | median_cagr | min_terminal_multiple | median_terminal_multiple | median_ratio_vs_no_reserve |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ASYMMETRIC_RESERVE_BAND | SSO | 20 | 240 | 0.0475 | 0.1001 | 2.5294 | 6.7417 | 0.9295 |
-| ASYMMETRIC_RESERVE_BAND | SSO | 30 | 120 | 0.0964 | 0.1212 | 15.8246 | 30.9407 | 0.8574 |
-| ASYMMETRIC_RESERVE_BAND | UPRO | 20 | 240 | 0.0568 | 0.1243 | 3.0210 | 10.4243 | 0.9683 |
-| ASYMMETRIC_RESERVE_BAND | UPRO | 30 | 120 | 0.1100 | 0.1557 | 22.8933 | 76.7606 | 0.8905 |
-| BAND_DRAWDOWN | SSO | 20 | 240 | 0.0528 | 0.1045 | 2.8010 | 7.2975 | 1.0071 |
-| BAND_DRAWDOWN | SSO | 30 | 120 | 0.0982 | 0.1242 | 16.6329 | 33.5115 | 0.9326 |
-| BAND_DRAWDOWN | UPRO | 20 | 240 | 0.0683 | 0.1288 | 3.7518 | 11.2879 | 1.0600 |
-| BAND_DRAWDOWN | UPRO | 30 | 120 | 0.1119 | 0.1604 | 24.1206 | 86.8501 | 0.9994 |
-| FIXED_85_15 | SSO | 20 | 240 | 0.0476 | 0.0976 | 2.5334 | 6.4406 | 0.8917 |
-| FIXED_85_15 | SSO | 30 | 120 | 0.0925 | 0.1159 | 14.2220 | 26.8400 | 0.7461 |
-| FIXED_85_15 | UPRO | 20 | 240 | 0.0597 | 0.1213 | 3.1919 | 9.8751 | 0.9051 |
-| FIXED_85_15 | UPRO | 30 | 120 | 0.1064 | 0.1484 | 20.7480 | 63.5246 | 0.7423 |
-| FIXED_90_10 | SSO | 20 | 240 | 0.0479 | 0.1000 | 2.5504 | 6.7251 | 0.9296 |
-| FIXED_90_10 | SSO | 30 | 120 | 0.0943 | 0.1198 | 14.9390 | 29.7981 | 0.8270 |
-| FIXED_90_10 | UPRO | 20 | 240 | 0.0594 | 0.1225 | 3.1709 | 10.0783 | 0.9416 |
-| FIXED_90_10 | UPRO | 30 | 120 | 0.1065 | 0.1526 | 20.8040 | 70.8588 | 0.8284 |
-| HWM_DRAWDOWN | SSO | 20 | 240 | 0.0481 | 0.1048 | 2.5572 | 7.3430 | 1.0048 |
-| HWM_DRAWDOWN | SSO | 30 | 120 | 0.0972 | 0.1258 | 16.1480 | 35.0037 | 0.9780 |
-| HWM_DRAWDOWN | UPRO | 20 | 240 | 0.0583 | 0.1269 | 3.1039 | 10.9095 | 1.0346 |
-| HWM_DRAWDOWN | UPRO | 30 | 120 | 0.1062 | 0.1601 | 20.6316 | 86.1103 | 0.9968 |
-| HWM_RESERVE | SSO | 20 | 240 | 0.0477 | 0.1034 | 2.5417 | 7.1591 | 0.9858 |
-| HWM_RESERVE | SSO | 30 | 120 | 0.0962 | 0.1259 | 15.7458 | 35.0471 | 0.9719 |
-| HWM_RESERVE | UPRO | 20 | 240 | 0.0575 | 0.1240 | 3.0604 | 10.3540 | 0.9867 |
-| HWM_RESERVE | UPRO | 30 | 120 | 0.1034 | 0.1590 | 19.1278 | 83.5814 | 0.9721 |
-| NO_RESERVE | SSO | 20 | 240 | 0.0481 | 0.1042 | 2.5585 | 7.2599 | 1.0000 |
-| NO_RESERVE | SSO | 30 | 120 | 0.0972 | 0.1270 | 16.1633 | 36.0829 | 1.0000 |
-| NO_RESERVE | UPRO | 20 | 240 | 0.0577 | 0.1242 | 3.0687 | 10.3930 | 1.0000 |
-| NO_RESERVE | UPRO | 30 | 120 | 0.1044 | 0.1598 | 19.6536 | 85.4121 | 1.0000 |
+| ASYMMETRIC_RESERVE_BAND | SSO | 20 | 240 | 0.0536 | 0.1028 | 2.8406 | 7.0815 | 0.9372 |
+| ASYMMETRIC_RESERVE_BAND | SSO | 30 | 120 | 0.1043 | 0.1216 | 19.6230 | 31.2966 | 0.8819 |
+| ASYMMETRIC_RESERVE_BAND | UPRO | 20 | 240 | 0.0666 | 0.1332 | 3.6336 | 12.2021 | 0.9610 |
+| ASYMMETRIC_RESERVE_BAND | UPRO | 30 | 120 | 0.1310 | 0.1591 | 40.1445 | 83.9234 | 0.9038 |
+| BAND_DRAWDOWN | SSO | 20 | 240 | 0.0579 | 0.1069 | 3.0844 | 7.6302 | 1.0086 |
+| BAND_DRAWDOWN | SSO | 30 | 120 | 0.1071 | 0.1235 | 21.1536 | 32.9392 | 0.9337 |
+| BAND_DRAWDOWN | UPRO | 20 | 240 | 0.0774 | 0.1372 | 4.4385 | 13.0827 | 1.0408 |
+| BAND_DRAWDOWN | UPRO | 30 | 120 | 0.1324 | 0.1627 | 41.7110 | 92.0994 | 0.9789 |
+| FIXED_85_15 | SSO | 20 | 240 | 0.0523 | 0.0989 | 2.7707 | 6.6010 | 0.8804 |
+| FIXED_85_15 | SSO | 30 | 120 | 0.0994 | 0.1151 | 17.1477 | 26.2615 | 0.7415 |
+| FIXED_85_15 | UPRO | 20 | 240 | 0.0676 | 0.1276 | 3.6991 | 11.0496 | 0.8813 |
+| FIXED_85_15 | UPRO | 30 | 120 | 0.1242 | 0.1499 | 33.4883 | 66.1307 | 0.7219 |
+| FIXED_90_10 | SSO | 20 | 240 | 0.0530 | 0.1016 | 2.8102 | 6.9252 | 0.9214 |
+| FIXED_90_10 | SSO | 30 | 120 | 0.1019 | 0.1189 | 18.3893 | 29.1094 | 0.8234 |
+| FIXED_90_10 | UPRO | 20 | 240 | 0.0681 | 0.1308 | 3.7312 | 11.6797 | 0.9246 |
+| FIXED_90_10 | UPRO | 30 | 120 | 0.1268 | 0.1545 | 35.9120 | 74.3989 | 0.8116 |
+| HWM_DRAWDOWN | SSO | 20 | 240 | 0.0538 | 0.1079 | 2.8511 | 7.7620 | 1.0020 |
+| HWM_DRAWDOWN | SSO | 30 | 120 | 0.1061 | 0.1253 | 20.6234 | 34.5145 | 0.9795 |
+| HWM_DRAWDOWN | UPRO | 20 | 240 | 0.0677 | 0.1375 | 3.7040 | 13.1526 | 1.0220 |
+| HWM_DRAWDOWN | UPRO | 30 | 120 | 0.1316 | 0.1623 | 40.7748 | 91.1656 | 0.9969 |
+| HWM_RESERVE | SSO | 20 | 240 | 0.0537 | 0.1061 | 2.8471 | 7.5157 | 0.9889 |
+| HWM_RESERVE | SSO | 30 | 120 | 0.1057 | 0.1253 | 20.3946 | 34.4979 | 0.9765 |
+| HWM_RESERVE | UPRO | 20 | 240 | 0.0677 | 0.1349 | 3.7052 | 12.5740 | 0.9894 |
+| HWM_RESERVE | UPRO | 30 | 120 | 0.1301 | 0.1618 | 39.1902 | 90.0530 | 0.9785 |
+| NO_RESERVE | SSO | 20 | 240 | 0.0540 | 0.1069 | 2.8642 | 7.6262 | 1.0000 |
+| NO_RESERVE | SSO | 30 | 120 | 0.1065 | 0.1261 | 20.8541 | 35.2762 | 1.0000 |
+| NO_RESERVE | UPRO | 20 | 240 | 0.0681 | 0.1358 | 3.7350 | 12.7749 | 1.0000 |
+| NO_RESERVE | UPRO | 30 | 120 | 0.1310 | 0.1625 | 40.1515 | 91.6354 | 1.0000 |
 
 ## Accounting and implementation conventions
 

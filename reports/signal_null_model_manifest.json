@@ -1,0 +1,17 @@
+{
+  "permutations": 2000,
+  "seed": 20260907,
+  "specifications": 144,
+  "sma_days": 200,
+  "spread_bps": 50,
+  "switch_cost_bps": 25,
+  "window": [
+    "1986-09-29",
+    "2026-09-02"
+  ],
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "pandas": "3.0.5",
+  "scipy": "1.17.1",
+  "output_sha256": "87f248b35af93eac385c0f38908577c40a416d8a3012f4f22668042eebe01227"
+}

@@ -16,6 +16,7 @@ import scipy
 from .cohorts import cohort_frame, nav_path
 from .data import build_inputs, download
 from .model import calendar_days, financing_accrual, simulate, fit_spread, compare, metrics, wealth
+from .provenance import FLOAT_FORMAT
 
 
 def table(frame):
@@ -183,16 +184,16 @@ def run(root, config, refresh=False, offline=False):
     daily = pd.concat([sim, actual.drop(columns=[c for c in actual if c.endswith("_PRIMARY")]),
                        raw_returns[["SPY", "QQQ", "TLT", "VFINX", "VUSTX"]].add_suffix("_OBSERVED")], axis=1)
     daily.index.name = "date"
-    daily.to_csv(processed / "daily_returns.csv", float_format="%.12g")
+    daily.to_csv(processed / "daily_returns.csv", float_format=FLOAT_FORMAT)
     levels = pd.DataFrame(index=daily.index)
     for name, r in daily.items():
         r = r.dropna()
         prior = calendar[calendar.get_loc(r.index[0]) - 1]
         levels[name] = pd.concat([pd.Series([1.0], index=[prior]), wealth(r)])
     levels.index.name = "date"
-    levels.to_csv(processed / "wealth_indices.csv", float_format="%.12g")
+    levels.to_csv(processed / "wealth_indices.csv", float_format=FLOAT_FORMAT)
     provenance.to_csv(processed / "daily_source_labels.csv", index_label="date")
-    costs.to_csv(processed / "daily_cost_components.csv", index_label="date", float_format="%.12g")
+    costs.to_csv(processed / "daily_cost_components.csv", index_label="date", float_format=FLOAT_FORMAT)
     pd.DataFrame(fits).to_csv(reports / "calibration.csv", index=False)
     validation = pd.DataFrame(diagnostics)
     validation.to_csv(reports / "validation.csv", index=False)

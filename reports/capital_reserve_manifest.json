@@ -8,18 +8,20 @@
     "data/snapshots/portfolio_sma_inputs.zip": "dbcc1d90710867480eb51d2133d4eb02fd312208c9a79ad6bdda234d8cffaea5"
   },
   "source_hashes": {
-    "src/letf/__init__.py": "dc96c5002ba1332bfa07ad0d1887187358360eb42ba394850c3142df60c02626",
-    "src/letf/analysis.py": "086e035ad8b925e8c0f15141e987828d2260c4059087a7097fdea0c3d435622c",
+    "src/letf/analysis.py": "be0b21dfa3f38f759203af6607e7fe08678c6ca5b74b67717136856cf517cda0",
     "src/letf/analysis_report.py": "71f33dc6e3374ff41d6e8ce6c90d208557baefa9c0bfee382c1422e7fa384a32",
-    "src/letf/capital_reserve.py": "512609adb4947c6ab1bc5c2fb364e3275685d2a78c5a5c6688f9eb61119b491f",
+    "src/letf/capital_reserve.py": "3236f12fee701624c4b2fc218e4959a698fabdcb7c605097e3c17b5e4dba4565",
+    "src/letf/cohorts.py": "40e0130a8fb174c9afb3216c17cf3d3da9a900cd3de8dbd2ef1a4778284d1c1c",
     "src/letf/data.py": "163c7c05fe1cc637d069fd80236691f53fa17d9d6494039f113bda92f25d142e",
-    "src/letf/falsification.py": "587e11f969395ad007ab8574f8e930a9f5779139211c498c372b191cb61852e7",
+    "src/letf/falsification.py": "306fc2915f8a4bab39619e53a98088027fe37589664ac08d1610a45c2ac7bdd6",
     "src/letf/falsification_report.py": "41a3b1b2c6bfc994c7622e4b3756570dbf8e7d31756776e3a1c3d536d2cf3c15",
-    "src/letf/model.py": "0d9c33e564f28233d7f27f5a172392e8cd590ef0204fbf66c82de3d3a4a929ba",
-    "src/letf/pipeline.py": "4e0e30148f4e5998821b34a90cc2e7b1e03d0391734c071cdff3b423f1910b97",
-    "src/letf/reserve.py": "9e8b59caade5da9ddc928b4b80f295759e9f520d09a9fd9bbd566693f0dc610e",
-    "src/letf/reserve_cohorts.py": "eeb56509d228fe3eb978bb9f54d55c80d1aa2b103f0d89c4d32705abf2c2d81d",
-    "src/letf/reserve_report.py": "ea2e1f7092804d2c0a693f6e16ee8da448e874af5c6a42354ad6e1ccae19832d"
+    "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
+    "src/letf/pipeline.py": "30a3eef47cc7cda24a7fd17c50bfa20801df3ff2a8282e34eb330a85cfee2aae",
+    "src/letf/provenance.py": "7119922d34f49001721b41dc786cd6bae14a092c463c827997a31d5a64489264",
+    "src/letf/reserve.py": "74d4826ca98902200d05ea53a33576ee0d9b9b099a4676cce6a70a1fb76d08d5",
+    "src/letf/reserve_report.py": "ea2e1f7092804d2c0a693f6e16ee8da448e874af5c6a42354ad6e1ccae19832d",
+    "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
+    "src/letf/strategy.py": "6f5ed4f12831ca733256a9cae9c20beb43ac2f93a4daadbe1c8a804cbab1af16"
   },
   "rules": {
     "NO_RESERVE": {
@@ -108,8 +110,8 @@
   ],
   "fixed_matching": "Ex-post diagnostic: full-sample average rounded half-up to nearest 5%; not optimized",
   "runtime": {
-    "python": "3.12.13",
-    "numpy": "2.3.5",
-    "pandas": "2.2.3"
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5"
   }
 }

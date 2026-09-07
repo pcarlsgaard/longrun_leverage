@@ -13,13 +13,47 @@ from .falsification import (
     load_price_signals, select_returns, stress_detail, subperiod_index, switching_costs,
     transitions,
 )
+from .diagnostics import edge_concentration
 from .model import calendar_days
 from .signals import signal_price_return as price_return, volatility_position as price_volatility_position
 from .regime_signals import archived_prices, matched_control, signal_features
+from .provenance import FLOAT_FORMAT
 
 SMA_LENGTHS = (150, 200, 250)
 SPREADS = (0, 50, 100)
 PRIMARY_COST = 25
+
+
+def summary_table(grid, volrows, alt_rows):
+    """The curated cross-family view, generated rather than assembled by hand.
+
+    This file used to be committed with no script that produced it. Its numbers
+    were correct; nothing kept them correct. It is now a projection of the same
+    frames the rest of the battery is built from.
+    """
+    keep = ['series','sma_days','lag','switch_cost_bps','cagr','terminal_multiple','max_drawdown',
+            'sharpe','switches_per_year','worst_rolling_20y_cagr','worst_rolling_30y_cagr',
+            'average_equity_exposure','fee_equal_timing_cagr_difference']
+    def project(frame, family):
+        out = frame.reindex(columns=keep).copy()
+        out.insert(0, 'test_family', family)
+        return out
+
+    primary = grid[(grid.series == 'UPRO_SMA_TO_SP500') & (grid.spread_bps == 50)
+                   & (grid.switch_cost_bps.isin([0, PRIMARY_COST]))]
+    cross = grid[grid.series.isin(['SSO_SMA_TO_SP500','TQQQ_SMA_TO_NASDAQ'])
+                 & (grid.sma_days == 200) & (grid.spread_bps == 50)
+                 & (grid.switch_cost_bps == PRIMARY_COST)]
+    vol = pd.DataFrame(volrows)
+    vol = vol[vol.switch_cost_bps == PRIMARY_COST] if 'switch_cost_bps' in vol else vol
+    regime = pd.DataFrame(alt_rows)
+    regime = regime[(regime.lag == 'LAG2') & (regime.switch_cost_bps == PRIMARY_COST)]
+    return pd.concat([
+        project(primary.sort_values(['sma_days','lag','switch_cost_bps']), 'SMA_PRIMARY'),
+        project(cross.sort_values(['series','lag']), 'SMA_CROSS_FAMILY'),
+        project(vol.sort_values(['lag','series']) if len(vol) else vol, 'VOLATILITY'),
+        project(regime.sort_values('cagr', ascending=False), 'REGIME_LAG2_25BP'),
+    ], ignore_index=True)
 
 
 def alternative_states(daily, signal_price, signal_price_return, median_price, lag):
@@ -86,7 +120,7 @@ def run(root: Path):
                                 primary[(name,lag,cost)] = net
                                 primary_states[(name,lag,cost)] = state
     grid = pd.DataFrame(grid_rows)
-    grid.to_csv(reports/'price_signal_revision_sma_grid.csv', index=False, float_format='%.12g')
+    grid.to_csv(reports/'price_signal_revision_sma_grid.csv', index=False, float_format=FLOAT_FORMAT)
 
     # Historical subperiods using live state across boundaries.
     subs=[]
@@ -103,7 +137,7 @@ def run(root: Path):
                     m=strategy_metrics(r.loc[si],cash,calendar,p.loc[si] if p is not None else None,False)
                     subs.append(dict(series=name,family=under,lag=f'LAG{lag}',period=period,
                                      signal_source='PRICE_INDEX',**m))
-    pd.DataFrame(subs).to_csv(reports/'price_signal_revision_subperiods.csv',index=False,float_format='%.12g')
+    pd.DataFrame(subs).to_csv(reports/'price_signal_revision_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Price-return volatility state diagnostics and price-volatility targeting.
     volstates=[]
@@ -120,7 +154,7 @@ def run(root: Path):
                 annualized_upro_log_return=252*np.log1p(daily.loc[ix,'UPRO_BASE'][mask]).mean(),
                 annualized_sp500_total_return_log=252*np.log1p(daily.loc[ix,'SP500_1X'][mask]).mean(),
                 annualized_exact_path_drag_log=252*comp.path_drag_log[mask].mean()))
-    pd.DataFrame(volstates).to_csv(reports/'price_signal_revision_volatility_states.csv',index=False,float_format='%.12g')
+    pd.DataFrame(volstates).to_csv(reports/'price_signal_revision_volatility_states.csv',index=False,float_format=FLOAT_FORMAT)
 
     volrows=[]
     for lag in LAGS:
@@ -136,7 +170,7 @@ def run(root: Path):
                                     signal_source='PRICE_RETURN',strategy_return_source='TOTAL_RETURN',
                                     average_equity_exposure=p.mean(),fraction_1x=p.eq(1).mean(),
                                     fraction_2x=p.eq(2).mean(),fraction_3x=p.eq(3).mean(),**m))
-    pd.DataFrame(volrows).to_csv(reports/'price_signal_revision_volatility_targets.csv',index=False,float_format='%.12g')
+    pd.DataFrame(volrows).to_csv(reports/'price_signal_revision_volatility_targets.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Alternative regime signals, all driven by price/index inputs.
     sp_price, median_price, ao_note = archived_prices(root,config,calendar)
@@ -168,9 +202,9 @@ def run(root: Path):
                     signal_price_volatility=pr.std(ddof=1)*np.sqrt(252),
                     sp500_total_return_log=252*np.log1p(daily.loc[ix,'SP500_1X'][mask]).mean(),
                     upro_total_return_log=252*np.log1p(daily.loc[ix,'UPRO_BASE'][mask]).mean()))
-    pd.DataFrame(alt_rows).to_csv(reports/'price_signal_revision_regime_metrics.csv',index=False,float_format='%.12g')
-    pd.DataFrame(alt_sub).to_csv(reports/'price_signal_revision_regime_subperiods.csv',index=False,float_format='%.12g')
-    pd.DataFrame(alt_states).to_csv(reports/'price_signal_revision_regime_states.csv',index=False,float_format='%.12g')
+    pd.DataFrame(alt_rows).to_csv(reports/'price_signal_revision_regime_metrics.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(alt_sub).to_csv(reports/'price_signal_revision_regime_subperiods.csv',index=False,float_format=FLOAT_FORMAT)
+    pd.DataFrame(alt_states).to_csv(reports/'price_signal_revision_regime_states.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Attribution uses price-only state but actual total-return investment economics.
     attrs=[]
@@ -182,7 +216,9 @@ def run(root: Path):
             for kind,label in [('1x','SP500'),('tbill','TBILL')]:
                 for row in attribution(c,p,cash,spec['leverage'],kind):
                     attrs.append(dict(series=f'{fund}_SMA_TO_{label}',lag=f'LAG{lag}',signal_source='PRICE_INDEX',**row))
-    pd.DataFrame(attrs).to_csv(reports/'price_signal_revision_attribution.csv',index=False,float_format='%.12g')
+    pd.DataFrame(attrs).to_csv(reports/'price_signal_revision_attribution.csv',index=False,float_format=FLOAT_FORMAT)
+    summary_table(grid, volrows, alt_rows).to_csv(
+        reports/'price_signal_revision_summary.csv', index=False, float_format=FLOAT_FORMAT)
 
     # Before/after audit for canonical UPRO -> SP500 rule and stress timing.
     audit=[]
@@ -207,8 +243,8 @@ def run(root: Path):
                 legacy_max_drawdown=ro['episode_max_drawdown'],revised_max_drawdown=rn['episode_max_drawdown'],
                 legacy_episode_end_value=ro['episode_end_value'],revised_episode_end_value=rn['episode_end_value']))
     audit=pd.DataFrame(audit); stress=pd.DataFrame(stress)
-    audit.to_csv(reports/'price_signal_revision_audit.csv',index=False,float_format='%.12g')
-    stress.to_csv(reports/'price_signal_revision_stress_audit.csv',index=False,float_format='%.12g')
+    audit.to_csv(reports/'price_signal_revision_audit.csv',index=False,float_format=FLOAT_FORMAT)
+    stress.to_csv(reports/'price_signal_revision_stress_audit.csv',index=False,float_format=FLOAT_FORMAT)
 
     # Compact interpretation report.
     l1=audit[audit.lag.eq('LAG1')].set_index('source'); l2=audit[audit.lag.eq('LAG2')].set_index('source')
@@ -221,6 +257,9 @@ def run(root: Path):
     for _,r in stress.iterrows():
         if r.legacy_first_riskoff_signal != r.revised_first_riskoff_signal:
             material.append(f"- {r['event']} {r['lag']}: legacy first risk-off {r.legacy_first_riskoff_signal or 'none'}; price-only {r.revised_first_riskoff_signal or 'none'}.")
+    concentration = {lag: edge_concentration(primary[(f'UPRO_SMA_TO_SP500',lag,PRIMARY_COST)],
+                                             primary[('UPRO_ALWAYS',lag,PRIMARY_COST)])
+                     for lag in LAGS}
     regime=pd.DataFrame(alt_rows)
     leaders=(regime[(regime.lag=='LAG2')&(regime.switch_cost_bps==25)]
              .sort_values('fee_equal_timing_cagr_difference',ascending=False)[['series','cagr','fee_equal_timing_cagr_difference']].head(4))
@@ -249,8 +288,45 @@ def run(root: Path):
         '## Revised regime-signal ranking (LAG2, 25 bp)', '',
         '| Signal | CAGR | Equal-fee matched-leverage timing Δ |','|---|---:|---:|',
         *[f"| {r.series} | {pct(r.cagr)} | {100*r.fee_equal_timing_cagr_difference:+.2f} pp |" for _,r in leaders.iterrows()], '',
+        '## Where the difference comes from', '',
+        f'Price and legacy total-return SMA states differ on only {pct(old1.signal_disagreement_fraction)} of sessions,',
+        'so the aggregate gap is produced by a small set of disagreement dates rather than',
+        'by a different average leverage budget. The stress table above names them.', '',
+        f'The single most important is 1987. Under LAG2 the legacy total-return signal is',
+        'still leveraged into the 1987-10-19 crash while the price signal is already out,',
+        'because the price index crossed its moving average one session earlier. That one',
+        'session, not a broad improvement in timing, is what separates the two LAG2 CAGRs',
+        f'in the table above ({pct(old2.cagr)} legacy versus {pct(new2.cagr)} revised).', '',
+        '### Concentration of the revised advantage over always-on UPRO', '',
+        '| Lag | Total log advantage | Top 1 day | Top 5 days | Top 20 days | Largest month | Month share |',
+        '|---|---:|---:|---:|---:|---|---:|',
+        *[f"| LAG{lag} | {c['total_log_advantage']:.4f} | {pct(c['top1_day_share'])} | "
+          f"{pct(c['top5_day_share'])} | {pct(c['top20_day_share'])} | {c['top_month']} | "
+          f"{pct(c['top_month_share'])} |" for lag, c in concentration.items()], '',
+        'These shares are fractions of the entire multi-decade advantage. Read them before',
+        'quoting the CAGR gap: an advantage concentrated in a handful of sessions is a',
+        'statement about those sessions, and its out-of-sample value is far less certain',
+        'than the point estimate suggests. `letf.null_model` tests the same strategies',
+        'against a matched-exposure random-timing null.', '',
         '## Interpretation', '',
-        'This is a methodological correction, not an optimized model. The conclusion should be judged by whether price-only signals retain the same direction of leverage-management benefit across SMA lengths, execution lags, costs, financing spreads, subperiods and long cohorts. The structured CSVs contain the complete corrected battery.', '',
+        'This is a methodological correction, not an optimized model, and not evidence that',
+        'the corrected rule works. The prior qualitative conclusion survives the correction:',
+        'price-only SMA timing remains the strongest parsimonious regime trigger in this',
+        'comparison, the 20-day absolute-volatility rule remains a weaker positive',
+        'comparator, and relative volatility, efficiency, trend-quality, low-churn and',
+        'Awesome Oscillator rules do not establish robust matched-leverage value.', '',
+        'The corrected SMA result is broad rather than knife-edge: 150/200/250-day price',
+        'SMAs all identify useful leverage states in parts of the grid, but their execution',
+        'sensitivity differs materially, and the 250-day rule can be stronger under LAG1',
+        'while weaker under LAG2. That is consistent with a slow regime phenomenon rather',
+        'than a precisely optimized cutoff — and equally consistent with a grid large',
+        'enough to contain favorable cells by chance.', '',
+        'So the correction leaves the central thesis directionally unchanged but',
+        'quantitatively revised: distributions belong in investment wealth, not in the',
+        'signal. Signal-source choice can materially affect individual transition dates,',
+        'especially around extreme events, even though the states disagree on only a small',
+        'fraction of days. The structured CSVs and `src/letf/price_signal_revision.py`',
+        'reproduce the corrected battery.', '',
         f'AO note: {ao_note}',
     ]
     (reports/'price_signal_revision_results.md').write_text('\n'.join(report)+'\n')

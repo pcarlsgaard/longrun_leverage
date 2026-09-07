@@ -13,6 +13,43 @@ required, and three of the six experiment modules need to be rerun.**
 
 ---
 
+## Status: this review has been acted on
+
+The five experiment branches were consolidated onto one branch and the §4 work
+was carried out. What each finding now maps to:
+
+| Finding | Status |
+|---|---|
+| M1 no null model | `letf/null_model.py` — block permutation matched on switch count, episode lengths and leveraged-day fraction, reported against a Šidák correction for the grid size. Output: `reports/signal_null_model_results.md`. |
+| M2 edge concentration | `letf/diagnostics.py`, reported per strategy in the null-model output and in the price-revision report. |
+| M3 pseudo-replication | The cross-index report now computes the paired win rate *and* states that it is one comparison re-scored under nuisance parameters, with the subperiod table promoted above it. |
+| M4 half-corrected convention | `capital_reserve`, `reserve_cohorts` and `regime_signals` switched to `level_position` and rerun. `regime_signals` also moved its volatility and relative-volatility features onto price returns. |
+| M5 ex-post control labelling | Unchanged in substance; the controls were already correct. |
+| M6 narrative drift | The two branch-5 reports were rewritten by their generators with calibrated language and explicit pointers to the null model. |
+| M7 cohort drawdown state | Unchanged: documented as an entry artifact, not silently altered. |
+| C1 empty committed CSV | Regenerated; the CI reproducibility gate now fails on a stale or empty result. |
+| C2 hand-edited generated reports | Both generators now emit the full narrative. No committed report is hand-written. |
+| C3 orphan deliverables | Both now have generators. |
+| C4 ignored `offline` argument | Fixed. |
+| C5, C6, C7 duplicate cohort code | One implementation in `letf/cohorts.py`; the other five deleted. The guard and the entry close are now structural. |
+| C8 two cost conventions | One convention, stated once in `letf/strategy.py`: bps on half-L1 turnover. The rotation case is turnover 1.0. |
+| C9 manifest churn | `letf/provenance.py` hashes the real import graph, read statically from source. |
+| C10 untested modules | `tests/test_cohorts.py`, `tests/test_null_model.py`, `tests/test_signals_strategy.py`. |
+| C11 slow reserve loop | Unchanged. It is the dominant CI cost but it is correct, and rewriting it would risk the numbers for a runtime gain. |
+| C12 output precision | `FLOAT_FORMAT = '%.10g'`, defined once. |
+
+Two defects were found *during* the remediation and are worth recording because
+neither would have been caught by review alone: `cohorts.nav_path` silently
+produced a path ending before it started when handed a restricted window
+instead of the full calendar (now raises), and the first version of the
+permutation null could silently return a draw with fewer switches than the real
+rule when two same-state episodes merged (replaced with a construction that
+cannot).
+
+The findings below are the original assessment, unchanged.
+
+---
+
 ## 1. What holds up
 
 - **Daily-reset economics** (`model.simulate`): ACT/360 financing summed over

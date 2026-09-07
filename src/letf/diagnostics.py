@@ -37,8 +37,13 @@ def edge_concentration(strategy: pd.Series, benchmark: pd.Series,
                        top_days=TOP_DAYS) -> dict:
     """Share of the total log advantage from the largest few sessions/months.
 
-    Shares are signed fractions of the *total* advantage, so they are directly
-    comparable to it: 0.39 means those sessions produced 39% of the whole gap.
+    "Top" means most favorable to the sign of the total advantage: for a
+    positive gap, the sessions that contributed most of it; for a negative gap,
+    the sessions that cost most. Shares are fractions of the total, so 0.39
+    means those sessions produced 39% of the whole gap, and a share above 1.0
+    means the rest of the history was net negative — which is itself the
+    finding. Shares are non-decreasing in `n` by construction.
+
     When the total advantage is ~0 the shares are undefined and returned NaN,
     because a ratio to zero says nothing.
     """
@@ -52,7 +57,12 @@ def edge_concentration(strategy: pd.Series, benchmark: pd.Series,
                     'advantage_excluding_top_month': np.nan})
         return row
 
-    ordered = diff.reindex(diff.abs().sort_values(ascending=False).index)
+    # Rank by contribution *in the direction of the total advantage*, so "top 5
+    # days" means the five sessions that did most to produce the gap. Ranking by
+    # magnitude instead would mix a large loss into the "top" of a positive
+    # advantage and make the shares non-monotone in n.
+    direction = 1.0 if total > 0 else -1.0
+    ordered = diff.sort_values(ascending=(direction < 0))
     for n in top_days:
         row[f'top{n}_day_share'] = float(ordered.iloc[:n].sum() / total)
     best = ordered.index[0]
@@ -60,7 +70,7 @@ def edge_concentration(strategy: pd.Series, benchmark: pd.Series,
     row['best_day_share'] = float(ordered.iloc[0] / total)
 
     monthly = diff.groupby(diff.index.to_period('M')).sum()
-    top_month = monthly.abs().idxmax()
+    top_month = (monthly.idxmax() if direction > 0 else monthly.idxmin())
     row['top_month'] = str(top_month)
     row['top_month_share'] = float(monthly.loc[top_month] / total)
     row['advantage_excluding_top_month'] = total - float(monthly.loc[top_month])

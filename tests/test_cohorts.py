@@ -80,3 +80,15 @@ class CohortTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NavPathGuardTests(unittest.TestCase):
+    def test_restricted_window_as_calendar_is_rejected(self):
+        """calendar[0-1] wraps to the last session and yields a path that ends before it starts."""
+        calendar = pd.bdate_range('2000-01-03', '2005-12-30')
+        r = pd.Series(.001, index=calendar)
+        with self.assertRaises(ValueError):
+            nav_path(r, calendar)
+        # The same returns with a calendar that has room for the entry close are fine.
+        wider = pd.bdate_range('1999-12-31', '2005-12-30')
+        self.assertEqual(nav_path(r, wider).index[0], wider[0])

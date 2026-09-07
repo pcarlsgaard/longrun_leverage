@@ -95,3 +95,36 @@ class EdgeConcentrationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EdgeConcentrationOrderingTests(unittest.TestCase):
+    """Shares must rank by contribution to the gap, not by magnitude."""
+
+    def setUp(self):
+        self.ix = pd.bdate_range('2020-01-01', periods=50)
+
+    def test_shares_are_monotone_in_n_for_a_positive_advantage(self):
+        rng = np.random.default_rng(21)
+        a = pd.Series(rng.normal(.002, .02, 50), index=self.ix)
+        b = pd.Series(rng.normal(.000, .02, 50), index=self.ix)
+        row = edge_concentration(a, b)
+        self.assertGreater(row['total_log_advantage'], 0)
+        self.assertLessEqual(row['top1_day_share'], row['top5_day_share'])
+        self.assertLessEqual(row['top5_day_share'], row['top20_day_share'])
+
+    def test_shares_are_monotone_for_a_negative_advantage_too(self):
+        rng = np.random.default_rng(22)
+        a = pd.Series(rng.normal(-.01, .005, 50), index=self.ix)
+        b = pd.Series(rng.normal(.000, .02, 50), index=self.ix)
+        row = edge_concentration(a, b)
+        self.assertLess(row['total_log_advantage'], 0)
+        self.assertLessEqual(row['top1_day_share'], row['top5_day_share'])
+        self.assertLessEqual(row['top5_day_share'], row['top20_day_share'])
+
+    def test_a_big_loss_is_not_counted_among_the_top_contributors(self):
+        a = pd.Series(0., index=self.ix); b = pd.Series(0., index=self.ix)
+        a.iloc[10] = .5          # the gain that makes the advantage
+        a.iloc[20] = -.3         # larger in magnitude than nothing else, but a loss
+        row = edge_concentration(a, b)
+        self.assertEqual(row['best_day'], self.ix[10].date().isoformat())
+        self.assertGreater(row['top1_day_share'], 1.0)  # the rest is net negative

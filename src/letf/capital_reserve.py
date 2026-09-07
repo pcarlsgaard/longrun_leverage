@@ -8,11 +8,13 @@ import platform
 import numpy as np
 import pandas as pd
 
-from .analysis import CASH, REGIMES, load_inputs, matched, sma_position, path, sha
-from .falsification import COSTS, PERIODS, evaluate, subperiod_index
+from .analysis import CASH, REGIMES, load_inputs, matched, path, sha
+from .falsification import COSTS, PERIODS, evaluate, load_price_signals, subperiod_index
+from .signals import level_position
 from .model import calendar_days
 from .cohorts import cohort_frame, nav_path
 from .reserve import ReserveRule, simulate_reserve, full_cycle_accounting, tagged_deployment_value
+from .provenance import FLOAT_FORMAT, source_hashes
 
 PRIMARY_RULES = {
     'NO_RESERVE': ReserveRule(),
@@ -159,11 +161,12 @@ def bull_episodes(a, baseline, calendar):
 def run(root):
     daily,config=load_inputs(root,offline=True)
     calendar=daily.index
-    positions={lag:sma_position(daily.SP500_1X,calendar,200).shift(lag-1) for lag in (1,2)}
+    prices=load_price_signals(root,config,offline=True)
+    positions={lag:level_position(prices['SP500'],calendar,200,lag) for lag in (1,2)}
     # Same primary date window as prior falsification; no Nasdaq strategy tested.
     common=matched(pd.concat([daily[['SP500_1X','NASDAQ100_1X','LONG_TREASURY_1X',CASH]],
-        sma_position(daily.SP500_1X,calendar,250).shift(1),
-        sma_position(daily.NASDAQ100_1X,calendar,250).shift(1)],axis=1)).index
+        level_position(prices['SP500'],calendar,250,2),
+        level_position(prices['NASDAQ100'],calendar,250,2)],axis=1)).index
     underlying=path(daily.SP500_1X.dropna(),calendar[0])
     raw_dd=underlying/underlying.cummax()-1
     reports=root/'reports'; processed=root/'data/processed'
@@ -302,15 +305,15 @@ def run(root):
     frames=dict(metrics=metrics,sensitivity=sensitivities,stress_cycles=cycles,deployments=deployments,
                 costs=costs,exposure=exposures,rolling_summary=rolls,matched_controls=matched_rows,bull_episodes=bulls,subperiods=subperiods)
     for label,rows in frames.items():
-        pd.DataFrame(rows).to_csv(reports/f'capital_reserve_{label}.csv',index=False,float_format='%.12g')
+        pd.DataFrame(rows).to_csv(reports/f'capital_reserve_{label}.csv',index=False,float_format=FLOAT_FORMAT)
     for lag in (1,2):
         for field in ('wealth','reserve_wealth','reserve_weight','effective_equity_exposure','return_net'):
             pd.DataFrame({name:a[field] for (name,l),a in saved.items() if l==lag}).to_csv(
-                processed/f'capital_reserve_{field}_lag{lag}.csv',index_label='date',float_format='%.12g')
+                processed/f'capital_reserve_{field}_lag{lag}.csv',index_label='date',float_format=FLOAT_FORMAT)
     manifest=dict(as_of=config['as_of'],entry_close=str(calendar[calendar.get_loc(common[0])-1].date()),
         input_hashes={rel:sha(root/rel) for rel in ('config.json','data/processed/daily_returns.csv',
             'data/raw/fred_DTB3.csv','data/snapshots/portfolio_sma_inputs.zip')},
-        source_hashes={str(p.relative_to(root)):sha(p) for p in sorted((root/'src/letf').glob('*.py'))},
+        source_hashes=source_hashes(root, __name__),
         rules={name:asdict(rule) for name,rule in PRIMARY_RULES.items()},
         lags=[1,2],cost_bps=list(COSTS),cap_grid=[.10,.15,.20],harvest_grid=[.05,.10,.15],
         fixed_matching='Ex-post diagnostic: full-sample average rounded half-up to nearest 5%; not optimized',

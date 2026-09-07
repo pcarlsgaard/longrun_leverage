@@ -8,11 +8,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .analysis import CASH, load_inputs, matched, sma_position
-from .falsification import (LAGS, PERIODS, load_price_signals, volatility_position,
-    select_returns, switching_costs, transitions, evaluate, economic_components,
-    subperiod_index)
+from .analysis import CASH, load_inputs, matched
+from .falsification import (LAGS, PERIODS, load_price_signals, select_returns,
+    switching_costs, transitions, evaluate, economic_components, subperiod_index)
+from .signals import level_position, signal_price_return, volatility_position
 from .model import calendar_days
+from .provenance import FLOAT_FORMAT
 
 SMA = 'UPRO_SMA_TO_SP500'
 
@@ -42,11 +43,17 @@ def regression_quality(price, window=120):
     return pd.DataFrame(result, index=price.index, columns=['slope', 'r_squared', 'slope_t'])
 
 
-def signal_features(price, underlying, median_price=None):
-    """Features at close t; execution lag is applied once, downstream."""
+def signal_features(price, price_return, median_price=None):
+    """Features at close t; execution lag is applied once, downstream.
+
+    Every feature reads the unadjusted price index, including the volatility
+    ratio. Mixing a price-level trend with a total-return volatility estimate
+    was the inconsistency this module carried before the price-only convention
+    was adopted repository-wide.
+    """
     out = regression_quality(price)
-    vol20 = underlying.rolling(20).std(ddof=1)
-    vol120 = underlying.rolling(120).std(ddof=1)
+    vol20 = price_return.rolling(20).std(ddof=1)
+    vol120 = price_return.rolling(120).std(ddof=1)
     out['relative_volatility'] = vol20 / vol120.replace(0, np.nan)
     distance = price.diff().abs().rolling(60).sum()
     net = price.diff(60)
@@ -63,15 +70,15 @@ def signal_features(price, underlying, median_price=None):
     return out
 
 
-def positions(daily, features, lag):
+def positions(daily, features, price, price_return, lag):
     if lag not in LAGS:
         raise ValueError('Unsupported lag')
     f = features
     def state(condition, required):
         return condition.astype(float).where(f[required].notna().all(axis=1)).shift(lag)
-    vol, _ = volatility_position(daily.SP500_1X, lag=lag, binary=True)
+    vol, _ = volatility_position(price_return, lag=lag, binary=True)
     out = {
-        SMA: sma_position(daily.SP500_1X, daily.index, 200).shift(lag-1),
+        SMA: level_position(price, daily.index, 200, lag),
         'VOL_BINARY': (vol-1)/2,
         'REL_VOL': state(f.relative_volatility <= 1., ['relative_volatility']),
         'EFFICIENCY': state((f.ser > 0) & (f.er >= .25), ['ser', 'er']),
@@ -135,10 +142,14 @@ def run(root):
     daily, config = load_inputs(root, offline=True)
     calendar = daily.index
     price, median, ao_note = archived_prices(root, config, calendar)
-    features = signal_features(price, daily.SP500_1X, median)
-    states = {lag: positions(daily, features, lag) for lag in LAGS}
-    # Reuse the exact prior falsification window to retain its volatility results.
-    prior_positions = [sma_position(daily[f'{u}_1X'], calendar, 250).shift(1)
+    prices = load_price_signals(root, config, offline=True)
+    returns = signal_price_return(price)
+    features = signal_features(price, returns, median)
+    states = {lag: positions(daily, features, price, returns, lag) for lag in LAGS}
+    # Same comparison window as every other price-signal battery. It is identical
+    # to the total-return-matched window this module used before, so the
+    # signal-independent comparators below are still directly checkable.
+    prior_positions = [level_position(prices[u], calendar, 250, 2)
                        for u in ('SP500', 'NASDAQ100')]
     ix = matched(pd.concat([daily[['SP500_1X','NASDAQ100_1X','LONG_TREASURY_1X',CASH]],
                             *prior_positions, *states.values()], axis=1)).index
@@ -181,10 +192,16 @@ def run(root):
                     row['switches_per_year'] = row['switch_count']/row['years']
                     subs.append({**meta, 'period':period, **row})
     metrics, subs, conditional = map(pd.DataFrame,(metrics,subs,conditional))
-    # Validate reuse against committed values, rather than rerunning the old battery.
+    # Cross-check the signal-independent comparators against the committed
+    # falsification battery, rather than rerunning it. UPRO_ALWAYS and SP500_1X
+    # depend only on the comparison window, which is unchanged, so they must
+    # still match exactly; a drift here means the window or the economics moved.
+    # VOL_BINARY and the SMA are deliberately NOT checked: they now read the
+    # price index rather than total-return levels, so they are expected to
+    # differ from the legacy CSV. That difference is the correction.
     old = pd.read_csv(root/'reports/volatility_target_comparison.csv')
     checks = 0
-    for _, row in metrics[metrics.series.isin(['VOL_BINARY',SMA,'UPRO_ALWAYS','SP500_1X'])].iterrows():
+    for _, row in metrics[metrics.series.isin(['UPRO_ALWAYS','SP500_1X'])].iterrows():
         ref = old[(old.series==row.series)&(old.lag==row.lag)&(old.switch_cost_bps==row.switch_cost_bps)].iloc[0]
         for key in ('cagr','terminal_multiple','average_equity_exposure','switch_count'):
             if not np.isclose(row[key], ref[key], rtol=2e-9, atol=1e-10):
@@ -200,7 +217,7 @@ def run(root):
     out = root/'reports'
     for suffix, data in [('metrics',metrics),('subperiods',subs),('states',conditional),
                          ('agreement',pd.DataFrame(agree))]:
-        data.to_csv(out/f'regime_signal_{suffix}.csv', index=False, float_format='%.12g')
+        data.to_csv(out/f'regime_signal_{suffix}.csv', index=False, float_format=FLOAT_FORMAT)
     from .regime_signal_report import write_report
     write_report(root, metrics, subs, conditional, pd.DataFrame(agree), ao_note, checks)
     print(f'Regime comparison: {len(metrics)} full-history rows, {len(subs)} subperiod rows; '

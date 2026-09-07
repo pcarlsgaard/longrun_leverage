@@ -41,21 +41,21 @@ class RegimeTests(unittest.TestCase):
         price = pd.Series(np.exp(np.cumsum(rng.normal(.001,.02,400))),index=ix)
         r = price.pct_change(); daily = pd.DataFrame({'SP500_1X':r,'UPRO_BASE':3*r},index=ix)
         features = signal_features(price,r,price)
-        p1, p2 = positions(daily,features,1),positions(daily,features,2)
+        p1, p2 = positions(daily,features,price,r,1),positions(daily,features,price,r,2)
         pd.testing.assert_frame_equal(p2,p1.shift(1))
         altered = price.copy(); altered.iloc[300:] *= np.linspace(2,10,100)
         changed = daily.copy(); changed.SP500_1X = altered.pct_change()
         other = signal_features(altered,changed.SP500_1X,altered)
         pd.testing.assert_frame_equal(features.iloc[:300],other.iloc[:300])
         for lag in (1,2):
-            p, q = positions(daily,features,lag),positions(changed,other,lag)
+            p, q = positions(daily,features,price,r,lag),positions(changed,other,altered,changed.SP500_1X,lag)
             pd.testing.assert_frame_equal(p.iloc[:300+lag],q.iloc[:300+lag])
         self.assertAlmostEqual(features.flip_median.iloc[300],features.flip_rate.iloc[:300].median())
         self.assertAlmostEqual(features.relative_volatility.iloc[300],r.iloc[281:301].std()/r.iloc[181:301].std())
         # Holdings select the correct sleeve; a signal at close affects the next
         # return, and the added wait defers it one more session.
         for lag in (1,2):
-            p = positions(daily,features,lag).EFFICIENCY.dropna()
+            p = positions(daily,features,price,r,lag).EFFICIENCY.dropna()
             got = select_returns(daily,p,{0:'SP500_1X',1:'UPRO_BASE'})
             expected = daily.loc[p.index,'SP500_1X']*(1+2*p)
             np.testing.assert_allclose(got,expected)

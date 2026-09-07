@@ -183,3 +183,93 @@ The [regime-signal report](reports/regime_signal_results.md) compares SMA, absol
 and relative volatility, efficiency, regression quality, sign churn and Awesome
 Oscillator for 3×/1× S&P leverage management, including matched-exposure controls.
 Reproduce the five compact reports offline with `PYTHONPATH=src python -m letf.regime_signals`.
+
+## Price-only signal convention
+
+Every timing signal in this repository reads an **unadjusted price index**, the
+series an investor actually watches. Earlier work used total-return levels,
+which no index quotes intraday and which cross a moving average on different
+sessions. The difference is not cosmetic: under LAG2 it changes the position
+held on 1987-10-19 and, through that one session, roughly 2.3pp of the 40-year
+CAGR. `letf.signals.level_position` is canonical; `letf.signals.sma_position`
+is retained only as the legacy comparator earlier reports were built on, and
+is used nowhere else.
+
+See [price-only revision results](reports/price_signal_revision_results.md) and
+[cohort distributions](reports/price_signal_cohort_distribution_summary.md).
+
+```bash
+PYTHONPATH=src python -m letf.price_signal_revision
+PYTHONPATH=src python -m letf.cohort_distributions
+```
+
+## Cross-index signal
+
+Whether one broad equity-risk signal can govern leverage in another index:
+TQQQ driven by the S&P 500 price SMA versus the Nasdaq-100's own. See
+[cross-index results](reports/cross_index_tqqq_sma_results.md). The full-grid
+win rate reported there is one comparison re-scored under nuisance parameters,
+not independent evidence; the subperiod table is the part that varies, and it
+reverses after 2020.
+
+```bash
+PYTHONPATH=src python -m letf.cross_index_signal
+```
+
+## Does any of it beat chance?
+
+**Read this before quoting a CAGR advantage from anywhere else in the
+repository.** The batteries above vary nuisance parameters — SMA length, lag,
+spread, switching cost, subperiod. None of them tests the prior question:
+whether a rule with the same trading profile but no timing information would
+have done as well.
+
+[`letf.null_model`](reports/signal_null_model_results.md) runs that test. It
+cuts each realized position series into episodes and reshuffles their lengths,
+holding the switch count, the episode-length distribution and the fraction of
+leveraged sessions fixed, so only the dates move. It reports the uncorrected
+permutation p-value and a Šidák correction for the size of the grid that
+produced the result.
+
+It also reports **edge concentration**: the share of a strategy's total log
+advantage contributed by its largest 1, 5 and 20 sessions. For UPRO
+SMA(200, LAG2) versus always-on, October 1987 supplies about 41% of the entire
+40-year advantage and 1987-10-19 alone about 39%. A gap that concentrated
+describes those sessions, not a repeatable edge.
+
+```bash
+PYTHONPATH=src python -m letf.null_model
+```
+
+## Reproducing every committed result
+
+```bash
+scripts/regenerate.sh        # rebuild reports/ from the frozen input bundles
+scripts/check_reproducible.sh  # and assert nothing changed
+```
+
+The second script is a CI job. Every committed `.csv` and `.md` under
+`reports/` must be exactly what the code produces; `*_manifest.json` (which
+records runtime versions) and `*.png` (matplotlib is not byte-reproducible)
+are excluded. **No committed report may be edited by hand** — a generator
+writes the same path and will silently discard the edit. Analysis that belongs
+in a report belongs in the generator.
+
+## Known limitations
+
+Collected rather than scattered, because they bound every result above:
+
+- **Overlapping cohorts are not independent trials.** A 30-year percentile over
+  a 40-year history is built from windows sharing almost all their data.
+- **Multiplicity.** Thousands of specification rows are evaluated. Nothing here
+  survives a correction for the size of that search; see the null model.
+- **Edge concentration.** Much of the SMA advantage is a handful of sessions.
+- **Ex-post controls.** Matched-exposure comparators set exposure from
+  full-sample averages. They are diagnostics, not implementable strategies.
+- **Proxy history.** Early Nasdaq-100 is price-only proxy data; VFINX and VUSTX
+  stand in for index and Treasury history before their coverage.
+- **Idealized execution.** Close-to-close, no market impact, no taxes, no
+  contributions, withdrawals or inflation adjustment.
+
+A full methodological and code review of the experiments is in
+[docs/experiment_review.md](docs/experiment_review.md).

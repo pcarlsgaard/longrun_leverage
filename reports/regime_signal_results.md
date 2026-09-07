@@ -47,9 +47,9 @@ points; other risk metrics refer to LAG2. Terminal wealth and all four scenarios
 
 | Signal | CAGR LAG1 | CAGR LAG2 | Vol LAG2 | Max DD LAG2 | Sharpe | Mean exposure | Switches | Timing Δ pp | Equal-fee Δ pp |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| SMA 200 | 17.88% | 15.15% | 39.38% | -78.28% | 0.49 | 2.56× | 230 | +0.75 | +0.52 |
-| Absolute vol 20 | 15.80% | 15.76% | 38.78% | -88.31% | 0.49 | 2.60× | 219 | +1.40 | +1.19 |
-| Relative vol | 9.94% | 12.24% | 37.70% | -96.80% | 0.41 | 2.22× | 499 | -2.11 | -2.50 |
+| SMA 200 | 16.29% | 17.14% | 37.70% | -75.41% | 0.53 | 2.51× | 261 | +2.72 | +2.47 |
+| Absolute vol 20 | 15.34% | 15.01% | 38.90% | -88.95% | 0.48 | 2.61× | 211 | +0.64 | +0.44 |
+| Relative vol | 9.63% | 11.96% | 37.66% | -96.81% | 0.41 | 2.22× | 495 | -2.38 | -2.78 |
 | Efficiency 60 | 6.92% | 8.69% | 22.35% | -55.73% | 0.35 | 1.28× | 370 | -3.03 | -3.88 |
 | Trend quality 120 | 12.99% | 13.49% | 40.00% | -78.74% | 0.45 | 2.37× | 73 | -0.94 | -1.26 |
 | Low churn 60 | 7.82% | 8.14% | 35.51% | -86.91% | 0.32 | 1.74× | 542 | -5.31 | -5.95 |
@@ -90,9 +90,9 @@ and neither control proves causality or future out-of-sample profitability.
 
 | Signal | Equal-fee full-window Δ range, pp | Positive full scenarios | Positive subperiod scenarios |
 | --- | --- | --- | --- |
-| SMA 200 | +0.52 to +4.97 | 4/4 | 10/16 |
-| Absolute vol 20 | +1.19 to +2.83 | 4/4 | 8/16 |
-| Relative vol | -4.81 to +1.06 | 1/4 | 6/16 |
+| SMA 200 | +1.62 to +4.41 | 4/4 | 11/16 |
+| Absolute vol 20 | +0.44 to +2.30 | 4/4 | 7/16 |
+| Relative vol | -5.12 to +0.75 | 1/4 | 6/16 |
 | Efficiency 60 | -5.66 to -1.33 | 0/4 | 2/16 |
 | Trend quality 120 | -1.77 to -0.74 | 0/4 | 8/16 |
 | Low churn 60 | -6.27 to -2.21 | 0/4 | 1/16 |
@@ -111,9 +111,9 @@ LAG2, 25 bp; CAGR. The 1987 start omits the partial 1986 tail included in the fu
 
 | Signal | 1987_1999 | 2000_2009 | 2010_2019 | 2020_latest |
 | --- | --- | --- | --- | --- |
-| SMA 200 | 23.06% | -4.71% | 20.85% | 26.99% |
-| Absolute vol 20 | 29.92% | -12.20% | 27.29% | 23.43% |
-| Relative vol | 29.12% | -18.93% | 19.90% | 24.73% |
+| SMA 200 | 30.17% | -4.61% | 23.34% | 25.27% |
+| Absolute vol 20 | 29.97% | -12.69% | 26.26% | 22.96% |
+| Relative vol | 28.80% | -18.70% | 19.10% | 25.55% |
 | Efficiency 60 | 17.49% | -1.35% | 7.57% | 10.40% |
 | Trend quality 120 | 17.28% | -2.48% | 29.71% | 11.70% |
 | Low churn 60 | 19.05% | -12.70% | 13.68% | 15.02% |
@@ -126,9 +126,9 @@ control**, percentage points:
 
 | Signal | 1987_1999 | 2000_2009 | 2010_2019 | 2020_latest |
 | --- | --- | --- | --- | --- |
-| SMA 200 | -6.89 | +7.32 | -9.94 | +1.52 |
-| Absolute vol 20 | -0.20 | +1.58 | -3.36 | -1.92 |
-| Relative vol | +1.34 | -6.46 | -6.47 | +0.56 |
+| SMA 200 | +0.45 | +6.68 | -7.15 | -0.15 |
+| Absolute vol 20 | -0.15 | +1.09 | -4.40 | -2.40 |
+| Relative vol | +1.11 | -6.22 | -7.29 | +1.38 |
 | Efficiency 60 | -3.73 | +0.69 | -9.37 | -8.23 |
 | Trend quality 120 | -12.14 | +7.11 | +0.89 | -13.33 |
 | Low churn 60 | -6.37 | -9.32 | -9.58 | -7.83 |
@@ -152,12 +152,12 @@ and log means, approximate drag and financing drag are also in the state CSV.
 
 | Signal | State | Day share | S&P log | UPRO log | S&P vol | Path drag |
 | --- | --- | --- | --- | --- | --- | --- |
-| SMA 200 | favorable | 78.20% | 10.65% | 16.88% | 13.93% | 6.35% |
-| SMA 200 | unfavorable | 21.80% | 10.77% | -1.63% | 29.13% | 25.85% |
-| Absolute vol 20 | favorable | 80.22% | 10.49% | 17.15% | 13.49% | 5.54% |
-| Absolute vol 20 | unfavorable | 19.78% | 11.43% | -4.60% | 31.05% | 31.12% |
-| Relative vol | favorable | 60.97% | 10.90% | 17.47% | 14.91% | 6.75% |
-| Relative vol | unfavorable | 39.03% | 10.33% | 5.63% | 22.71% | 16.62% |
+| SMA 200 | favorable | 75.73% | 11.56% | 20.53% | 13.38% | 5.46% |
+| SMA 200 | unfavorable | 24.27% | 7.92% | -11.12% | 28.79% | 26.64% |
+| Absolute vol 20 | favorable | 80.40% | 10.07% | 15.84% | 13.53% | 5.57% |
+| Absolute vol 20 | unfavorable | 19.60% | 13.17% | 0.59% | 31.10% | 31.23% |
+| Relative vol | favorable | 60.79% | 10.68% | 16.81% | 14.91% | 6.75% |
+| Relative vol | unfavorable | 39.21% | 10.68% | 6.70% | 22.67% | 16.57% |
 | Efficiency 60 | favorable | 14.07% | 6.95% | 6.84% | 12.01% | 4.36% |
 | Efficiency 60 | unfavorable | 85.93% | 11.29% | 13.83% | 19.19% | 11.62% |
 | Trend quality 120 | favorable | 68.36% | 10.00% | 13.57% | 15.20% | 7.62% |
@@ -197,12 +197,12 @@ favorable and does not establish incremental predictive information.
 | Signal | Agreement with SMA |
 | --- | --- |
 | SMA 200 | 100.00% |
-| Absolute vol 20 | 85.64% |
-| Relative vol | 63.67% |
-| Efficiency 60 | 35.85% |
-| Trend quality 120 | 85.00% |
-| Low churn 60 | 46.68% |
-| AO 5/34 | 72.94% |
+| Absolute vol 20 | 84.00% |
+| Relative vol | 63.07% |
+| Efficiency 60 | 38.30% |
+| Trend quality 120 | 85.80% |
+| Low churn 60 | 47.91% |
+| AO 5/34 | 73.19% |
 
 Absolute volatility agrees with SMA about 86% of the time, supporting substantial
 shared regime information. Regression quality agrees about 85% yet has inferior
@@ -216,9 +216,9 @@ overlap, so these are descriptive historical checks rather than independent tria
 
 | Signal | 20y min | 30y min | Control 20y min | Control 30y min |
 | --- | --- | --- | --- | --- |
-| SMA 200 | 5.77% | 10.44% | -0.33% | 9.28% |
-| Absolute vol 20 | 2.53% | 11.02% | -0.56% | 9.17% |
-| Relative vol | -3.15% | 5.80% | 1.43% | 9.93% |
+| SMA 200 | 6.81% | 13.10% | -0.05% | 9.40% |
+| Absolute vol 20 | 1.83% | 10.39% | -0.59% | 9.16% |
+| Relative vol | -3.48% | 5.23% | 1.44% | 9.93% |
 | Efficiency 60 | 1.28% | 6.30% | 3.83% | 9.25% |
 | Trend quality 120 | 4.85% | 10.88% | 0.73% | 9.71% |
 | Low churn 60 | -2.16% | 3.59% | 3.09% | 10.02% |
@@ -231,7 +231,7 @@ overlap, so these are descriptive historical checks rather than independent tria
 Run `PYTHONPATH=src python -m letf.regime_signals` from the repository root. It uses only
 verified frozen bundles, leaves their bytes unchanged, and writes the five requested
 compact reports. No daily-output files or summary figure are needed. The generator
-checks 16 reused baseline rows against the prior committed results. Tests:
+checks 8 reused baseline rows against the prior committed results. Tests:
 `PYTHONPATH=src python -m unittest discover -s tests -p 'test_regime_signals.py' -v`.
 
 This is a prespecified historical falsification exercise on one equity family, not new
@@ -239,7 +239,7 @@ held-out validation. Earlier source-proxy, financing, gross-1×, synthetic-fund 
 execution assumptions remain in force; taxes and actual market impact are not modeled.
 There is no Nasdaq replication or combined-signal fit in this focused experiment.
 
-Runtime: Python 3.12.13, NumPy 2.3.5, pandas 2.2.3.
+Runtime: Python 3.11.15, NumPy 2.4.6, pandas 3.0.5.
 
 Verified input SHA-256:
 
