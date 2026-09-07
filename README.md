@@ -259,6 +259,12 @@ parameter grids — ignoring recorded runtime versions and digests of generated
 files, both of which are environmental. `*.png` is excluded entirely, since
 matplotlib output is not reproducible across platforms.
 
+**Any change under `src/` needs `scripts/regenerate.sh` before committing**,
+even one that cannot move a number. Manifests record the SHA-256 of every
+source file in each result's import graph, so an edited comment makes them
+describe code that is no longer what ran. That is strict on purpose: a
+provenance record that is approximately true is not one.
+
 **No committed report may be edited by hand** — a generator writes the same
 path and will silently discard the edit. Analysis that belongs in a report
 belongs in the generator.
