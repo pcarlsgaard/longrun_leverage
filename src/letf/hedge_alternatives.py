@@ -40,7 +40,7 @@ from .analysis import CASH, load_inputs
 from .cohorts import cohort_cagrs, nav_path
 from .diagnostics import edge_concentration
 from .falsification import load_price_signals
-from .model import matched, portfolio
+from .model import calendar_days, matched, portfolio
 from .options import (LeapsRule, break_even_iv_premium, implied_volatility_proxy,
                       simulate_leaps_portfolio, trailing_dividend_yield, trailing_riskfree)
 from .provenance import FLOAT_FORMAT, sha, source_hashes, stable_floats
@@ -163,6 +163,90 @@ def build_candidates(daily, price, ix, calendar):
         candidates[name] = (returns, float(exposure.mean()))
         ledgers[name] = rolls
     return candidates, ledgers, (spot, dividend, riskfree)
+
+
+RESET_PERIODS = {'daily': 'D', 'weekly': 'W', 'monthly': 'M',
+                 'quarterly': 'Q', 'annual': 'Y'}
+
+
+def implied_financing(underlying, levered, leverage, expense, days):
+    """Cost of one borrowed dollar per session, recovered from the fund identity.
+
+    `letf.model.simulate` builds a leveraged series as
+    `L*u - (L-1)*(funding + spread*days/360) - expense*days/365`, so given the
+    unleveraged return, the committed leveraged series and the expense ratio,
+    the bracketed financing term is determined. Recovering it this way rather
+    than rebuilding it keeps the reset ladder on exactly the funding and spread
+    assumptions every other result here uses, and needs no input the repository
+    does not already have — the overnight-rate history is not among its cached
+    sources.
+    """
+    return (leverage * underlying - levered - expense * days / 365) / (leverage - 1)
+
+
+def constant_leverage(underlying, financing, leverage, period):
+    """Constant `leverage`, restored only at `period` boundaries.
+
+    Within a period the exposure is left alone: `L` dollars of index and `L-1`
+    of debt both compound untouched, so a fall raises the effective leverage
+    instead of triggering a sale. That is the whole point of the comparison —
+    it isolates reset frequency from every other difference between a
+    daily-reset fund and a rolled option.
+
+    Wipeout is absorbing, as it is in `letf.model.simulate`. It has to be
+    modelled explicitly here because, unlike a daily reset, a slow reset really
+    can put the debt above the assets: the loan does not shrink as the
+    collateral falls.
+    """
+    if not underlying.index.equals(financing.index):
+        raise ValueError('Underlying and financing calendars differ')
+    if leverage < 1:
+        raise ValueError('This comparison covers long leverage only')
+    u, f = underlying.to_numpy(), financing.to_numpy()
+    codes = underlying.index.to_period(period)
+    starts = np.flatnonzero(np.r_[True, codes[1:] != codes[:-1]])
+    values, wealth, dead = np.empty(len(u)), 1., False
+    for k, begin in enumerate(starts):
+        stop = starts[k + 1] if k + 1 < len(starts) else len(u)
+        if dead:
+            values[begin:stop] = 0.
+            continue
+        held = (leverage * wealth * np.cumprod(1 + u[begin:stop])
+                - (leverage - 1) * wealth * np.cumprod(1 + f[begin:stop]))
+        bust = np.flatnonzero(held <= 0)
+        if len(bust):
+            held[bust[0]:], dead = 0., True
+        values[begin:stop] = held
+        wealth = float(held[-1])
+    previous = np.r_[1., values[:-1]]
+    returns = np.where(previous > 0, values / np.where(previous > 0, previous, 1.) - 1., 0.)
+    return pd.Series(returns, index=underlying.index, name='return')
+
+
+def reset_ladder(daily, ix, calendar, expense, leverages=(2., 3.)):
+    """Does restoring leverage less often help? Measured, with no option in sight.
+
+    The option family's advantage over a daily-reset fund is usually explained
+    by variance drag: a daily reset sells into declines and buys into rallies,
+    and an annual roll does not. That explanation is testable without any option
+    at all, by varying only the reset frequency. It is worth testing because it
+    is the one claim about the option structures that does not depend on a
+    modelled premium.
+    """
+    entry = calendar[calendar.get_loc(ix[0]) - 1]
+    days = calendar_days(ix, entry)
+    financing = implied_financing(daily.loc[ix, EQUITY], daily.loc[ix, UPRO], 3., expense, days)
+    rows = []
+    for leverage in leverages:
+        for label, period in RESET_PERIODS.items():
+            returns = constant_leverage(daily.loc[ix, EQUITY], financing, leverage, period)
+            terminal = float((1 + returns).prod())
+            rows.append(dict(leverage=leverage, reset=label,
+                             cagr=cagr(returns) if terminal > 0 else -1.,
+                             max_drawdown=max_drawdown(returns),
+                             terminal_multiple=terminal,
+                             wiped_out=bool(terminal <= 0)))
+    return pd.DataFrame(rows), financing
 
 
 def concentration_table(candidates, benchmarks):
@@ -288,6 +372,7 @@ def run(root: Path):
     subperiods = window_table(candidates, SUBPERIODS, annualize=True)
     crashes = window_table(candidates, CRASHES, annualize=False)
     grid = leaps_grid(spot, daily, ix, dividend, riskfree)
+    ladder, _ = reset_ladder(daily, ix, calendar, config['funds']['UPRO']['expense'])
     rivals = {name: float(metrics.set_index('series').loc[name, 'cagr']) for name in RIVALS}
     breakeven = breakeven_table(spot, daily, ix, dividend, riskfree, rivals,
                                 BREAKEVEN_STRUCTURES)
@@ -301,11 +386,13 @@ def run(root: Path):
                'hedge_alternatives_crashes.csv': crashes,
                'hedge_alternatives_leaps_grid.csv': grid,
                'hedge_alternatives_breakeven.csv': breakeven,
-               'hedge_alternatives_rolls.csv': rolls}
+               'hedge_alternatives_rolls.csv': rolls,
+               'hedge_alternatives_reset_ladder.csv': ladder}
     for name, frame in outputs.items():
         frame.pipe(stable_floats).to_csv(reports / name, index=False, float_format=FLOAT_FORMAT)
 
-    report(reports, metrics, concentration, subperiods, crashes, grid, breakeven, ix, rivals)
+    report(reports, metrics, concentration, subperiods, crashes, grid, breakeven,
+           ladder, ix, rivals)
     (reports / 'hedge_alternatives_manifest.json').write_text(json.dumps({
         'window': [ix[0].date().isoformat(), ix[-1].date().isoformat()],
         'observations': int(len(ix)), 'sma_days': SMA_DAYS, 'lag': LAG,
@@ -348,7 +435,8 @@ def _table(frame, columns, formats, index=None):
     return '\n'.join(lines)
 
 
-def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven, ix, rivals):
+def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven,
+           ladder, ix, rivals):
     """Write the narrative from the numbers, never alongside them."""
     m = metrics.set_index('series')
     sma = m.loc['UPRO_SMA_TO_SP500']
@@ -376,6 +464,14 @@ def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven
     most_wins = max(pd.Series([row['best'] for row in best_worst]).value_counts())
     mix_crash = leveraged.loc['UPRO60_TMF40']
     always_crash = leveraged.loc['UPRO_ALWAYS_3X']
+
+    rungs = ladder[ladder.leverage == 3.].set_index('reset')
+    survivors = rungs[~rungs.wiped_out]
+    daily_rung = rungs.loc['daily']
+    best_rung = survivors.loc[survivors.cagr.idxmax()]
+    ruined = list(rungs[rungs.wiped_out].index)
+    best_option = m.loc[[i for i in m.index if i.startswith('LEAPS_')
+                         and i != 'LEAPS_RESTRUCK_3X']].cagr.max()
 
     metric_columns = ['series', 'cagr', 'max_drawdown', 'annualized_volatility',
                       'mean_delta_exposure', 'cohort_20y_min_cagr', 'cohort_30y_min_cagr']
@@ -498,17 +594,60 @@ options beat the hedged alternatives.**
 
 Against always-on 3x the margin is wider — break-even from **{versus_always.min():.1%}**
 to **{versus_always.max():.1%}**, or **{(versus_always.min() - base_iv) * 100:+.1f}** to
-**{(versus_always.max() - base_iv) * 100:+.1f}** points over the assumption. That
-comparison is also the one resting on a mechanism rather than a coincidence: a
-daily-reset fund pays variance drag continuously and an annually-rolled option
-does not, which is arithmetic, not a historical accident. It is the strongest
-claim the option family supports, and it is still a modelled one.
+**{(versus_always.max() - base_iv) * 100:+.1f}** points over the assumption. It is the
+strongest claim the option family supports, and the next section tests the
+mechanism behind it without pricing a single option.
 
 The option grid searched {len(grid):,} rows before these were selected. That is a
 smaller search than the one that produced the trend result, but it is not zero,
 and no permutation null is available to correct it: a roll schedule has no
 timing to randomize. Treat the option rows as the weakest evidence in this
 repository, not the strongest.
+
+## The mechanism, measured: how often should leverage be restored?
+
+The option family's edge over a daily-reset fund is usually explained by
+variance drag — a daily reset sells into declines and buys into rallies, an
+annual roll does not. That explanation is testable with no option in it, by
+holding constant leverage on a margin loan and varying only how often it is
+restored. Financing is recovered from the fund identity in `letf.model.simulate`,
+so these rungs carry exactly the funding and spread every other result here uses;
+they carry no fund expense, which is why the daily rung sits slightly above
+`UPRO_ALWAYS_3X`.
+
+{_table(ladder, ['leverage', 'reset', 'cagr', 'max_drawdown', 'terminal_multiple', 'wiped_out'],
+        {'leverage': '.0f', 'cagr': '.2%', 'max_drawdown': '.1%', 'terminal_multiple': ',.1f'})}
+
+**Half the explanation survives and half of it does not.**
+
+Slowing the reset does pay. At 3x it is worth {best_rung.cagr - daily_rung.cagr:.2%} a year going
+from daily to {best_rung.name}, measured on realized prices with nothing modelled. So
+variance drag is real and it is roughly the size the option structures imply.
+
+Read that as a statement about volatility, not about patience. What a daily
+reset pays for is oscillation — it sells after falls and buys after rises — so
+the saving only exists where there is volatility to harvest. On a smoothly
+rising path a slow reset earns *less*, because a gain dilutes the leverage while
+the loan stays put. Both directions are pinned by tests.
+
+But the benefit is not monotone, and past the turn it is not a penalty, it is
+ruin: at 3x the {' and '.join(ruined)} rungs are **wiped out entirely**. A margin loan does
+not shrink as its collateral falls, so a long enough gap between rebalances lets
+the debt overtake the assets. At 2x no rung is destroyed, which is the same
+point from the other side — the cliff is a function of leverage, not of patience.
+
+That reframes what the options are doing. They are not merely a slow reset,
+because a slow reset at 3x is fatal. They obtain the slow-reset benefit
+*and survive it*, because a call's loss is capped at its premium while a loan's
+is not. The best option structure reaches {best_option:.2%} against the best surviving
+rung's {best_rung.cagr:.2%}, and it never dies. **The convexity is not a bonus on top
+of the drag saving; it is what makes the drag saving reachable at this
+leverage.**
+
+The modelled premium is still doing work in that {best_option:.2%}. What this section
+establishes without any model is narrower and worth stating on its own: reset
+frequency matters, it matters by percentage points a year, and the frequency
+that would capture most of it cannot be held with borrowed money.
 
 ## Re-levering defeats the bounded loss
 
@@ -536,10 +675,13 @@ siblings keep a constant safe weight and get the floor; this row does not.
    {sma.max_drawdown:.1%}) and a better worst 20-year cohort
    ({mix.cohort_20y_min_cagr:.2%} against {sma.cohort_20y_min_cagr:.2%}) — and zero
    switches. Its exposure to a 2022-style rates shock is the price.
-3. **Options plausibly dominate daily-reset funds, on a mechanism.** The
-   break-even against always-on 3x is the widest margin in the table
-   ({(versus_always.max() - base_iv) * 100:+.1f} volatility points at most), and variance
-   drag is arithmetic rather than a historical accident.
+3. **Options plausibly dominate daily-reset funds, and half the mechanism is
+   measured.** The break-even against always-on 3x is the widest margin in the
+   table ({(versus_always.max() - base_iv) * 100:+.1f} volatility points at most). Slowing a
+   reset really is worth {best_rung.cagr - daily_rung.cagr:.2%} a year with no option
+   involved — but only up to a point, and past it a margin position is destroyed
+   outright. The option's contribution is surviving the frequency that kills the
+   loan.
 4. **Options do not clearly dominate the hedged alternatives.** Break-even sits
    {(cheapest - base_iv) * 100:+.1f} to {(dearest - base_iv) * 100:+.1f} points from the
    assumption — inside its own error bar. This report cannot settle that and

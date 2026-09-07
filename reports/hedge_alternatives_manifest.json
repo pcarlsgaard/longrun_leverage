@@ -26,7 +26,7 @@
     "src/letf/diagnostics.py": "28f71f304c692e103a79b8fcfc3dec04c50c9e8f8652b9a5d6e6e9bd683db0d6",
     "src/letf/falsification.py": "af5722b9b1a5785d4ae0e4583243c5beeaa58172525d1101af5fa6e44915ebb7",
     "src/letf/falsification_report.py": "f633da59a65f31d1bebaef8482666efc3a3155c0a1c49a073ca8bba0936d43fb",
-    "src/letf/hedge_alternatives.py": "6da7245855792b1c64daaff7caecde209a2c7b251d00dc9a19a058860b395d52",
+    "src/letf/hedge_alternatives.py": "e5b3504ba4a0d525d3da3f7f1e7da0c8c34f75239ef13fb8ae7f1ce463b8db00",
     "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
     "src/letf/options.py": "9bfb0ddd0b21b15a055a537f1350e85c409576af086ddc7561ddd11f1cf392c8",
     "src/letf/pipeline.py": "7d60efd68b7e7400a2b0258c59655174e4faaf6c13a99a73343cb9f9eed1dd00",
@@ -41,6 +41,7 @@
     "hedge_alternatives_crashes.csv": "c3d8995c3d1d8c38dba5885d7e30b18ec55c5e1e645bb1b58118c9c10549658b",
     "hedge_alternatives_leaps_grid.csv": "ecc5c0e2adc2c50218eefba016d35444aa2e3a0b0d58aa71fda7f0923d6d6f2f",
     "hedge_alternatives_breakeven.csv": "69c34e2e8504012bb618494ec7fc462efa73b622bff38302aa2f013f8d730022",
-    "hedge_alternatives_rolls.csv": "c490df0ffc0ca2b75cd2727975b4ecbc308553754597070cd18f92414ebad20b"
+    "hedge_alternatives_rolls.csv": "c490df0ffc0ca2b75cd2727975b4ecbc308553754597070cd18f92414ebad20b",
+    "hedge_alternatives_reset_ladder.csv": "64819a02b04fef0d5bb7ea8467281ba102393f8728973a0b8139207eef3902b3"
   }
 }

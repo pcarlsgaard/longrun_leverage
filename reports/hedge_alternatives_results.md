@@ -192,17 +192,70 @@ options beat the hedged alternatives.**
 
 Against always-on 3x the margin is wider — break-even from **22.4%**
 to **24.7%**, or **+2.2** to
-**+4.5** points over the assumption. That
-comparison is also the one resting on a mechanism rather than a coincidence: a
-daily-reset fund pays variance drag continuously and an annually-rolled option
-does not, which is arithmetic, not a historical accident. It is the strongest
-claim the option family supports, and it is still a modelled one.
+**+4.5** points over the assumption. It is the
+strongest claim the option family supports, and the next section tests the
+mechanism behind it without pricing a single option.
 
 The option grid searched 192 rows before these were selected. That is a
 smaller search than the one that produced the trend result, but it is not zero,
 and no permutation null is available to correct it: a roll schedule has no
 timing to randomize. Treat the option rows as the weakest evidence in this
 repository, not the strongest.
+
+## The mechanism, measured: how often should leverage be restored?
+
+The option family's edge over a daily-reset fund is usually explained by
+variance drag — a daily reset sells into declines and buys into rallies, an
+annual roll does not. That explanation is testable with no option in it, by
+holding constant leverage on a margin loan and varying only how often it is
+restored. Financing is recovered from the fund identity in `letf.model.simulate`,
+so these rungs carry exactly the funding and spread every other result here uses;
+they carry no fund expense, which is why the daily rung sits slightly above
+`UPRO_ALWAYS_3X`.
+
+| leverage | reset | cagr | max_drawdown | terminal_multiple | wiped_out |
+|---:|---|---:|---:|---:|---|
+| 2 | daily | 15.08% | -87.4% | 272.3 | False |
+| 2 | weekly | 15.70% | -86.5% | 337.7 | False |
+| 2 | monthly | 16.20% | -84.9% | 401.4 | False |
+| 2 | quarterly | 15.73% | -87.4% | 340.9 | False |
+| 2 | annual | 14.95% | -98.5% | 260.7 | False |
+| 3 | daily | 14.72% | -98.1% | 240.9 | False |
+| 3 | weekly | 16.59% | -97.7% | 459.1 | False |
+| 3 | monthly | 17.91% | -96.8% | 719.2 | False |
+| 3 | quarterly | -100.00% | -100.0% | 0.0 | True |
+| 3 | annual | -100.00% | -100.0% | 0.0 | True |
+
+**Half the explanation survives and half of it does not.**
+
+Slowing the reset does pay. At 3x it is worth 3.19% a year going
+from daily to monthly, measured on realized prices with nothing modelled. So
+variance drag is real and it is roughly the size the option structures imply.
+
+Read that as a statement about volatility, not about patience. What a daily
+reset pays for is oscillation — it sells after falls and buys after rises — so
+the saving only exists where there is volatility to harvest. On a smoothly
+rising path a slow reset earns *less*, because a gain dilutes the leverage while
+the loan stays put. Both directions are pinned by tests.
+
+But the benefit is not monotone, and past the turn it is not a penalty, it is
+ruin: at 3x the quarterly and annual rungs are **wiped out entirely**. A margin loan does
+not shrink as its collateral falls, so a long enough gap between rebalances lets
+the debt overtake the assets. At 2x no rung is destroyed, which is the same
+point from the other side — the cliff is a function of leverage, not of patience.
+
+That reframes what the options are doing. They are not merely a slow reset,
+because a slow reset at 3x is fatal. They obtain the slow-reset benefit
+*and survive it*, because a call's loss is capped at its premium while a loan's
+is not. The best option structure reaches 20.07% against the best surviving
+rung's 17.91%, and it never dies. **The convexity is not a bonus on top
+of the drag saving; it is what makes the drag saving reachable at this
+leverage.**
+
+The modelled premium is still doing work in that 20.07%. What this section
+establishes without any model is narrower and worth stating on its own: reset
+frequency matters, it matters by percentage points a year, and the frequency
+that would capture most of it cannot be held with borrowed money.
 
 ## Re-levering defeats the bounded loss
 
@@ -230,10 +283,13 @@ siblings keep a constant safe weight and get the floor; this row does not.
    -75.4%) and a better worst 20-year cohort
    (10.87% against 6.81%) — and zero
    switches. Its exposure to a 2022-style rates shock is the price.
-3. **Options plausibly dominate daily-reset funds, on a mechanism.** The
-   break-even against always-on 3x is the widest margin in the table
-   (+4.5 volatility points at most), and variance
-   drag is arithmetic rather than a historical accident.
+3. **Options plausibly dominate daily-reset funds, and half the mechanism is
+   measured.** The break-even against always-on 3x is the widest margin in the
+   table (+4.5 volatility points at most). Slowing a
+   reset really is worth 3.19% a year with no option
+   involved — but only up to a point, and past it a margin position is destroyed
+   outright. The option's contribution is surviving the frequency that kills the
+   loan.
 4. **Options do not clearly dominate the hedged alternatives.** Break-even sits
    -2.3 to +1.9 points from the
    assumption — inside its own error bar. This report cannot settle that and
