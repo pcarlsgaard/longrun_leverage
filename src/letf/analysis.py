@@ -12,7 +12,9 @@ import numpy as np
 import pandas as pd
 
 from .data import cached_source, fred
-from .model import calendar_days, metrics, portfolio, wealth
+from .cohorts import worst_cagr
+from .model import calendar_days, matched, metrics, portfolio, wealth
+from .signals import sma_position
 from .pipeline import rolling_outcomes
 
 CASH = 'TBILL_3M_1X'
@@ -64,36 +66,6 @@ def tbill_accrual(index, prior_date, discount_rates):
     return closes.pct_change(fill_method=None).iloc[1:].rename(CASH)
 
 
-def matched(frame):
-    """Trim edge coverage only; reject interior holes instead of skipping returns."""
-    if not frame.index.is_unique or not frame.index.is_monotonic_increasing:
-        raise ValueError('Calendar must be unique and increasing')
-    if frame.empty or frame.isna().all().any():
-        raise ValueError('No complete common history')
-    start = max(s.first_valid_index() for _, s in frame.items())
-    end = min(s.last_valid_index() for _, s in frame.items())
-    out = frame.loc[start:end]
-    if out.empty or out.isna().any().any():
-        raise ValueError('Interior gap in matched calendar')
-    return out
-
-
-def sma_position(underlying, calendar, length=200):
-    """Use N observed TR levels (including entry close), then shift one session.
-
-    Equality is risk-off. No trades/returns are assigned before N levels exist.
-    """
-    r = matched(underlying.to_frame()).iloc[:, 0]
-    expected = calendar[(calendar >= r.index[0]) & (calendar <= r.index[-1])]
-    if not r.index.equals(expected):
-        raise ValueError('Missing trading session in signal history')
-    prior = calendar[calendar.get_loc(r.index[0]) - 1]
-    nav = pd.concat([pd.Series([1.], index=[prior]), wealth(r)])
-    sma = nav.rolling(length, min_periods=length).mean()
-    signal = (nav > sma).astype(float).where(sma.notna())
-    return signal.shift(1).reindex(calendar)
-
-
 def path(returns, prior):
     return pd.concat([pd.Series([1.], index=[prior]), wealth(returns)])
 
@@ -123,16 +95,8 @@ def drawdown_details(nav):
 
 
 def worst_rolling(nav, years):
-    anniversary = nav.index + pd.DateOffset(years=years)
-    pos = nav.index.searchsorted(anniversary)
-    eligible = (pos < len(nav)) & (nav.to_numpy() > 0)
-    starts = np.flatnonzero(eligible)
-    if not len(starts):
-        return np.nan
-    ends = pos[eligible]
-    ratio = nav.to_numpy()[ends] / nav.to_numpy()[starts]
-    elapsed = (nav.index[ends] - nav.index[starts]).days.to_numpy()
-    return float(np.min(ratio ** (365.25 / elapsed) - 1))
+    """Worst daily-entry outcome over the horizon; see :mod:`letf.cohorts`."""
+    return worst_cagr(nav, years)
 
 
 def extended_metrics(r, cash, calendar):

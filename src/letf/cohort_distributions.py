@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .analysis import CASH, FAMILIES, load_inputs, matched
+from .cohorts import cohort_quantiles, nav_path
 from .falsification import LAGS, level_position, load_price_signals, select_returns, switching_costs
 
 HORIZONS = (10, 20, 30)
@@ -17,25 +18,8 @@ SMA_DAYS = 200
 SPREAD_BPS = 50
 
 
-def cohort_cagrs(returns: pd.Series, horizon_years: int) -> np.ndarray:
-    """Exact-anniversary CAGR for month-end entry cohorts, matching existing convention."""
-    nav = (1 + returns).cumprod()
-    # Cohort starts are the last observed close in each calendar month.
-    monthly = ~nav.index.to_period('M').duplicated(keep='last')
-    target = nav.index + pd.DateOffset(years=horizon_years)
-    ends = nav.index.searchsorted(target)
-    starts = np.flatnonzero((ends < len(nav)) & monthly)
-    if not len(starts):
-        return np.array([], dtype=float)
-    finishes = ends[starts]
-    elapsed = (nav.index[finishes] - nav.index[starts]).days.to_numpy()
-    ratios = nav.to_numpy()[finishes] / nav.to_numpy()[starts]
-    return ratios ** (365.25 / elapsed) - 1
-
-
-def percentile_row(series, family, lag, cost, horizon, returns):
-    values = cohort_cagrs(returns, horizon)
-    q = np.quantile(values, PERCENTILES) if len(values) else np.repeat(np.nan, len(PERCENTILES))
+def percentile_row(series, family, lag, cost, horizon, returns, calendar):
+    values, q = cohort_quantiles(nav_path(returns, calendar), horizon, PERCENTILES)
     row = {
         'series': series,
         'family': family,
@@ -72,7 +56,7 @@ def run(root: Path):
         for under in ('SP500', 'NASDAQ100'):
             r = daily.loc[ix, f'{under}_1X']
             for horizon in HORIZONS:
-                rows.append(percentile_row(f'{under}_1X', under, lag, 0, horizon, r))
+                rows.append(percentile_row(f'{under}_1X', under, lag, 0, horizon, r, calendar))
 
         for fund, under in FAMILIES.items():
             p = positions[(under, lag)].loc[ix]
@@ -89,7 +73,7 @@ def run(root: Path):
                              select_returns(daily, state, {0: off, 1: f'{fund}_SPREAD_{SPREAD_BPS}BP'}))
                     r = switching_costs(gross, state, cost)
                     for horizon in HORIZONS:
-                        rows.append(percentile_row(name, under, lag, cost, horizon, r))
+                        rows.append(percentile_row(name, under, lag, cost, horizon, r, calendar))
 
     out = pd.DataFrame(rows)
     path = root / 'reports' / 'price_signal_cohort_percentiles.csv'

@@ -7,23 +7,21 @@ import numpy as np
 import pandas as pd
 
 from .analysis import CASH, load_inputs, matched
+from .cohorts import cohort_quantiles, nav_path
 from .falsification import COSTS, LAGS, PERIODS, evaluate, level_position, load_price_signals, select_returns, subperiod_index, switching_costs
 from .price_signal_revision import SMA_LENGTHS, SPREADS
 
+PERCENTILES = (.01, .10, .25, .50, .75, .90, .99)
+
 
 def cohort_percentiles(r: pd.Series, calendar: pd.DatetimeIndex, horizons=(10,20,30)):
-    from .analysis import path
-    nav = path(r, calendar[calendar.get_loc(r.index[0])-1])
-    monthly = ~nav.index.to_period('M').duplicated(keep='last')
+    """Month-end cohort CAGR percentiles; see :mod:`letf.cohorts`."""
+    nav = nav_path(r, calendar)
     rows=[]
     for years in horizons:
-        ends = nav.index.searchsorted(nav.index + pd.DateOffset(years=years))
-        starts = np.flatnonzero((ends < len(nav)) & monthly)
-        finishes = ends[starts]
-        elapsed=(nav.index[finishes]-nav.index[starts]).days.to_numpy()
-        cagr=(nav.to_numpy()[finishes]/nav.to_numpy()[starts])**(365.25/elapsed)-1
-        q=np.quantile(cagr,[.01,.10,.25,.50,.75,.90,.99]) if len(cagr) else [np.nan]*7
-        rows.append(dict(horizon_years=years,cohorts=len(cagr),p1=q[0],p10=q[1],p25=q[2],p50=q[3],p75=q[4],p90=q[5],p99=q[6]))
+        cagr,q = cohort_quantiles(nav, years, PERCENTILES)
+        rows.append(dict(horizon_years=years,cohorts=len(cagr),
+                         p1=q[0],p10=q[1],p25=q[2],p50=q[3],p75=q[4],p90=q[5],p99=q[6]))
     return rows
 
 

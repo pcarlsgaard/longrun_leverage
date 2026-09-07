@@ -6,6 +6,20 @@ import pandas as pd
 from scipy.optimize import brentq
 
 
+def matched(frame):
+    """Trim edge coverage only; reject interior holes instead of skipping returns."""
+    if not frame.index.is_unique or not frame.index.is_monotonic_increasing:
+        raise ValueError('Calendar must be unique and increasing')
+    if frame.empty or frame.isna().all().any():
+        raise ValueError('No complete common history')
+    start = max(s.first_valid_index() for _, s in frame.items())
+    end = min(s.last_valid_index() for _, s in frame.items())
+    out = frame.loc[start:end]
+    if out.empty or out.isna().any().any():
+        raise ValueError('Interior gap in matched calendar')
+    return out
+
+
 def calendar_days(index: pd.DatetimeIndex, prior_date: pd.Timestamp) -> pd.Series:
     dates = pd.Series(index, index=index)
     previous = dates.shift(1)

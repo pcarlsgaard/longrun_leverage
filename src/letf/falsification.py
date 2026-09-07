@@ -12,10 +12,13 @@ import pandas as pd
 
 from .analysis import (CASH, FAMILIES, REGIMES, load_inputs, matched, sma_position,
                        extended_metrics, path, sha)
+from .cohorts import cohort_cagrs, nav_path, worst_cagr
 from .data import cached_source, yahoo
 from .model import calendar_days
+# Re-exported: signal construction lives in letf.signals, cost mechanics in letf.strategy.
+from .signals import LAGS, discrete_exposure, level_position, sma_position, volatility_position
+from .strategy import select_returns, switching_costs, transitions
 
-LAGS = {1: 'IMMEDIATE_NEXT_RETURN', 2: 'WAIT_ONE_TRADING_DAY'}
 COSTS = (0, 10, 25, 50)
 PERIODS = {'1987_1999': ('1987-01-01', '1999-12-31'),
            '2000_2009': ('2000-01-01', '2009-12-31'),
@@ -24,84 +27,19 @@ PERIODS = {'1987_1999': ('1987-01-01', '1999-12-31'),
            '2010_latest': ('2010-01-01', None)}
 
 
-def level_position(levels, calendar, length=200, lag=1):
-    """Close-level signal; lag counts return-end sessions, including warm-up."""
-    if lag not in LAGS or length < 2:
-        raise ValueError('Unsupported lag/lookback')
-    levels = matched(levels.loc[calendar[0]:calendar[-1]].to_frame()).iloc[:, 0]
-    expected = calendar[(calendar >= levels.index[0]) & (calendar <= levels.index[-1])]
-    if not levels.index.equals(expected) or (levels <= 0).any():
-        raise ValueError('Signal levels must cover every trading close and be positive')
-    mean = levels.rolling(length, min_periods=length).mean()
-    return (levels > mean).astype(float).where(mean.notna()).shift(lag).reindex(calendar).rename(None)
-
-
-def transitions(position):
-    """First valid allocation is establishment, not a state transition."""
-    previous = position.shift(1)
-    return position.notna() & previous.notna() & position.ne(previous)
-
-
-def switching_costs(returns, position, bps):
-    if bps < 0 or bps >= 10000 or not returns.index.equals(position.index):
-        raise ValueError('Invalid cost or mismatched calendars')
-    if returns.isna().any() or position.isna().any():
-        raise ValueError('Incomplete return/state history')
-    # Portfolio-level cost for selling old sleeve AND buying new sleeve, once per
-    # state change. At 50bp, a full off/on cycle costs 1-(1-.005)^2, not 50bp.
-    return (1 + returns) * (1 - bps / 10000 * transitions(position)) - 1
-
-
-def discrete_exposure(desired):
-    return pd.Series(np.select([desired < 1.5, desired < 2.5], [1., 2.], default=3.),
-                     index=desired.index).where(desired.notna())
-
-
-def volatility_position(underlying, window=20, lag=1, binary=False):
-    if lag not in LAGS:
-        raise ValueError('Unsupported lag')
-    vol = underlying.rolling(window, min_periods=window).std(ddof=1) * np.sqrt(252)
-    desired = (.20 / vol).clip(1, 3)
-    if binary:
-        state = pd.Series(np.where(vol < .20, 3., 1.), index=vol.index)
-    else:
-        state = discrete_exposure(desired)
-    return state.where(vol.notna()).shift(lag), vol.shift(lag)
-
-
-def select_returns(daily, position, columns):
-    legs = daily.loc[position.index, list(columns.values())]
-    if position.isna().any() or legs.isna().any().any():
-        raise ValueError('Incomplete sleeve/state history')
-    if not position.isin(columns).all():
-        raise ValueError('Unknown allocation state')
-    result = pd.Series(0., index=position.index)
-    for state, column in columns.items():
-        failed = daily[column].eq(-1).cumsum().shift(1, fill_value=0)
-        if ((failed.loc[position.index] > 0) & position.eq(state)).any():
-            raise ValueError('Cannot enter a terminated sleeve')
-        result = result.where(position.ne(state), legs[column])
-    return result
-
-
 def rolling_stats(r, calendar):
-    """Same exact-anniversary monthly cohorts as pipeline; vectorized summary.
+    """Worst daily-entry windows plus month-end cohort summaries.
 
-    Daily-entry minima are separate from monthly cohort minima.
+    Daily-entry minima are deliberately separate from monthly cohort minima:
+    the former is a worst-case bound, the latter a distribution over
+    investable entry dates. Both come from :mod:`letf.cohorts`.
     """
-    nav = path(r, calendar[calendar.get_loc(r.index[0])-1])
-    values = nav.to_numpy()
-    monthly = ~nav.index.to_period('M').duplicated(keep='last')
+    nav = nav_path(r, calendar)
     out = {}
     for years in (5, 10, 20, 30):
-        ends = nav.index.searchsorted(nav.index + pd.DateOffset(years=years))
-        starts = np.flatnonzero((ends < len(nav)) & (values > 0))
-        finishes = ends[starts]
-        elapsed = (nav.index[finishes]-nav.index[starts]).days.to_numpy()
-        cagr = (values[finishes]/values[starts]) ** (365.25/elapsed) - 1
-        out[f'worst_rolling_{years}y_cagr'] = float(cagr.min()) if len(cagr) else np.nan
+        out[f'worst_rolling_{years}y_cagr'] = worst_cagr(nav, years)
         if years in (20, 30):
-            cohorts = cagr[monthly[starts]]
+            cohorts = cohort_cagrs(nav, years)
             out.update({f'cohort_{years}y_count': len(cohorts),
                         f'cohort_{years}y_min_cagr': float(cohorts.min()) if len(cohorts) else np.nan,
                         f'cohort_{years}y_median_cagr': float(np.median(cohorts)) if len(cohorts) else np.nan})

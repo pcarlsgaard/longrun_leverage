@@ -11,6 +11,7 @@ import pandas as pd
 from .analysis import CASH, REGIMES, load_inputs, matched, sma_position, path, sha
 from .falsification import COSTS, PERIODS, evaluate, subperiod_index
 from .model import calendar_days
+from .cohorts import cohort_frame, nav_path
 from .reserve import ReserveRule, simulate_reserve, full_cycle_accounting, tagged_deployment_value
 
 PRIMARY_RULES = {
@@ -43,22 +44,18 @@ def exposure_metrics(a, rule):
 
 
 def rolling_summary(a, calendar):
-    """Existing monthly-anniversary machinery, in vectorized form.
+    """Month-end cohorts on the running policy; see :mod:`letf.cohorts`.
 
-    These cohorts buy units in an already-running policy; reserve state is
-    inherited. Separately exported fresh-investor cohorts restart policy state.
+    These cohorts buy units in an already-running policy, so reserve state is
+    inherited. `reserve_cohorts` separately exports fresh-investor cohorts that
+    restart policy state at entry.
     """
-    prior=calendar[calendar.get_loc(a.index[0])-1]
-    nav=path(a.return_net,prior)
-    monthly=~nav.index.to_period('M').duplicated(keep='last')
+    nav=nav_path(a.return_net,calendar)
     rows=[]
     for y in (20,30):
-        ends=nav.index.searchsorted(nav.index+pd.DateOffset(years=y))
-        starts=np.flatnonzero((ends<len(nav)) & monthly)
-        stop=ends[starts]
-        ratio=nav.to_numpy()[stop]/nav.to_numpy()[starts]
-        annual=ratio**(365.25/(nav.index[stop]-nav.index[starts]).days.to_numpy())-1
-        rows.append(dict(horizon_years=y,cohorts=len(starts),
+        frame=cohort_frame(nav,y)
+        ratio,annual=frame.multiple.to_numpy(),frame.cagr.to_numpy()
+        rows.append(dict(horizon_years=y,cohorts=len(frame),
             min_terminal_multiple=ratio.min() if len(ratio) else np.nan,
             median_terminal_multiple=np.median(ratio) if len(ratio) else np.nan,
             min_cagr=annual.min() if len(annual) else np.nan,

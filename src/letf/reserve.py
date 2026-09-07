@@ -32,10 +32,13 @@ class ReserveRule:
 
 
 def transition_turnover(risky, reserve, transfer, switch):
-    """Half-L1 across the actual assets; net overlapping switch/transfer orders.
+    """Half-L1 turnover across the actual assets; nets overlapping orders.
 
-    Positive transfer buys bills. On a state switch, selling the old risky asset
-    and buying the new asset and/or bills is ONE transition on max(R,R-transfer).
+    This is the repository's one costing convention (see :mod:`letf.strategy`)
+    applied to a partially-reserved portfolio: positive transfer buys bills,
+    and on a state switch, selling the old risky asset and buying the new asset
+    and/or bills is ONE transition on max(R, R-transfer). A rotation between
+    two fully-invested sleeves is the special case turnover = 1.0.
     """
     if risky < 0 or reserve < 0 or not -reserve-1e-12 <= transfer <= risky+1e-12:
         raise ValueError('Transfer exceeds capital')

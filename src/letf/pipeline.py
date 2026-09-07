@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import scipy
 
+from .cohorts import cohort_frame, nav_path
 from .data import build_inputs, download
 from .model import calendar_days, financing_accrual, simulate, fit_spread, compare, metrics, wealth
 
@@ -28,30 +29,20 @@ def table(frame):
 
 
 def rolling_outcomes(returns, calendar, horizons=(20, 30)):
-    """Exact calendar anniversaries, monthly entry cohorts, no lookahead fill.
+    """Month-end entry cohorts on exact calendar anniversaries.
 
-    Each entry is an observed month-end close. End is the first trading close
-    on/after its anniversary. Windows overlap and are not independent trials.
+    Thin wrapper over :mod:`letf.cohorts`, which owns the convention. Windows
+    overlap and are not independent trials.
     """
-    rows = []
+    frames = []
     for name, r in returns.items():
-        r = r.dropna()
-        prior = calendar[calendar.get_loc(r.index[0]) - 1]
-        nav = pd.concat([pd.Series([1.0], index=[prior]), wealth(r)])
-        entries = nav.groupby(nav.index.to_period("M")).tail(1)
+        nav = nav_path(r, calendar)
         for years in horizons:
-            for start, value in entries.items():
-                anniversary = start + pd.DateOffset(years=years)
-                pos = nav.index.searchsorted(anniversary)
-                if pos == len(nav):
-                    continue
-                end = nav.index[pos]
-                multiple = nav.iloc[pos] / value if value else 0.0
-                annual = multiple ** (365.25 / (end - start).days) - 1
-                rows.append({"series": name, "horizon_years": years,
-                             "entry_close": start.date().isoformat(), "exit_close": end.date().isoformat(),
-                             "multiple": multiple, "cagr": annual})
-    return pd.DataFrame(rows)
+            frame = cohort_frame(nav, years)
+            frame.insert(0, "series", name)
+            frames.append(frame)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
+        columns=["series", "horizon_years", "entry_close", "exit_close", "multiple", "cagr"])
 
 
 def charts(out, sim, actual, config, calendar):

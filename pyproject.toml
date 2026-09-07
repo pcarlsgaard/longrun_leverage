@@ -15,6 +15,11 @@ longrun-leverage-analysis = "letf.analysis:main"
 longrun-leverage-falsification = "letf.falsification:main"
 
 longrun-leverage-reserve = "letf.capital_reserve:main"
+longrun-leverage-revision = "letf.price_signal_revision:main"
+longrun-leverage-cohorts = "letf.cohort_distributions:main"
+longrun-leverage-cross-index = "letf.cross_index_signal:main"
+longrun-leverage-regimes = "letf.regime_signals:main"
+longrun-leverage-null-model = "letf.null_model:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

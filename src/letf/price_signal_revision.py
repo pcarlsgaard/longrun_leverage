@@ -14,26 +14,12 @@ from .falsification import (
     transitions,
 )
 from .model import calendar_days
+from .signals import signal_price_return as price_return, volatility_position as price_volatility_position
 from .regime_signals import archived_prices, matched_control, signal_features
 
 SMA_LENGTHS = (150, 200, 250)
 SPREADS = (0, 50, 100)
 PRIMARY_COST = 25
-
-
-def price_return(level: pd.Series) -> pd.Series:
-    """Canonical signal return: unadjusted price-index close-to-close return."""
-    return level.pct_change(fill_method=None).rename('signal_price_return')
-
-
-def price_volatility_position(signal_price_return, window=20, lag=1, binary=False):
-    vol = signal_price_return.rolling(window, min_periods=window).std(ddof=1) * np.sqrt(252)
-    desired = (.20 / vol).clip(1, 3)
-    if binary:
-        state = pd.Series(np.where(vol < .20, 3., 1.), index=vol.index)
-    else:
-        state = pd.Series(np.select([desired < 1.5, desired < 2.5], [1., 2.], default=3.), index=vol.index)
-    return state.where(vol.notna()).shift(lag), vol.shift(lag)
 
 
 def alternative_states(daily, signal_price, signal_price_return, median_price, lag):

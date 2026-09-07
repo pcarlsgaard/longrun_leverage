@@ -2,9 +2,9 @@ name: Build time series
 on:
   workflow_dispatch:
   push:
-    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/portfolio_sma_inputs.zip', 'reports/portfolio_sma_manifest.json', 'data/snapshots/sma_price_inputs.zip', 'reports/sma_price_input_manifest.json']
+    paths: ['src/**', 'tests/**', 'scripts/**', 'reports/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/**']
   pull_request:
-    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/portfolio_sma_inputs.zip', 'reports/portfolio_sma_manifest.json', 'data/snapshots/sma_price_inputs.zip', 'reports/sma_price_input_manifest.json']
+    paths: ['src/**', 'tests/**', 'scripts/**', 'reports/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/**']
 permissions:
   contents: read
 jobs:
@@ -17,32 +17,40 @@ jobs:
           python-version: '3.12'
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
-      - name: Rebuild portfolio and SMA analysis offline
-        if: github.event_name != 'pull_request'
-        run: longrun-leverage-analysis --offline
-      - name: Rebuild SMA falsification battery offline
-        if: github.event_name != 'pull_request'
-        run: longrun-leverage-falsification --offline
-      - name: Rebuild capital reserve experiment offline
-        if: github.event_name != 'pull_request'
-        run: |
-          longrun-leverage-reserve --offline
-          PYTHONPATH=src python -m letf.reserve_cohorts
-      - name: Rebuild canonical price-only signal revision
-        run: PYTHONPATH=src python -m letf.price_signal_revision
-      - name: Build price-signal cohort distributions
-        run: PYTHONPATH=src python -m letf.cohort_distributions
-      - name: Test common S&P SMA signal for TQQQ
-        run: PYTHONPATH=src python -m letf.cross_index_signal
-      - name: Download sources and generate outputs
-        if: github.event_name == 'workflow_dispatch'
-        run: |
+
+  reproduce:
+    # Regenerates every committed result offline and fails if any of them
+    # differs. This is what catches a hand-edited generated report, a committed
+    # result that no script produces, and a silent numeric drift.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - run: scripts/check_reproducible.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: longrun-leverage-reports
+          path: reports/
+          retention-days: 90
+
+  refresh:
+    # Only on demand: this one leaves the frozen bundles and hits the network.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - run: |
           longrun-leverage --refresh
           longrun-leverage-analysis --refresh
-          longrun-leverage-falsification --offline
-          PYTHONPATH=src python -m letf.price_signal_revision
-          PYTHONPATH=src python -m letf.cohort_distributions
-          PYTHONPATH=src python -m letf.cross_index_signal
+          scripts/regenerate.sh
       - uses: actions/upload-artifact@v4
         with:
           name: longrun-leverage-timeseries
