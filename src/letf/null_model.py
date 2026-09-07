@@ -39,7 +39,7 @@ import scipy
 
 from .analysis import CASH, FAMILIES, load_inputs, matched, sha
 from .cohorts import nav_path
-from .diagnostics import TOP_DAYS, edge_concentration
+from .diagnostics import edge_concentration
 from .falsification import load_price_signals
 from .signals import LAGS, level_position
 from .strategy import select_returns, switching_costs
@@ -158,13 +158,13 @@ def report(out: pd.DataFrame, reports: Path, permutations: int):
         'them asks whether a rule with the same trading profile but **no timing',
         'information** would have done as well. This report asks that.', '',
         '## Method', '',
-        f'For each strategy the realized position series is cut into episodes of constant',
+        'For each strategy the realized position series is cut into episodes of constant',
         f'allocation. The episode lengths are reshuffled within each state, {permutations:,} times.',
         'Every draw therefore holds the same number of switches, the same multiset of',
         'episode lengths, and the same fraction of sessions spent leveraged as the real',
         'rule. Only the dates move. A genuine timing signal should beat this null; a rule',
         'whose benefit comes from simply holding less leverage should not.', '',
-        f'`p_value` is the uncorrected one-sided permutation p-value. `p_sidak` corrects it',
+        '`p_value` is the uncorrected one-sided permutation p-value. `p_sidak` corrects it',
         f'for the {SPECIFICATIONS} nuisance-parameter cells each signal family was actually',
         'evaluated over (SMA length × lag × spread × switching cost × off-asset). That',
         'correction excludes the alternative regime signals and the cross-index variants,',

@@ -9,19 +9,19 @@
   },
   "source_hashes": {
     "src/letf/analysis.py": "be0b21dfa3f38f759203af6607e7fe08678c6ca5b74b67717136856cf517cda0",
-    "src/letf/analysis_report.py": "71f33dc6e3374ff41d6e8ce6c90d208557baefa9c0bfee382c1422e7fa384a32",
+    "src/letf/analysis_report.py": "d68c6b1f9e00a0b841cbf6cd35fd7287ee216adc48715a763ac10e9498ced75d",
     "src/letf/capital_reserve.py": "3236f12fee701624c4b2fc218e4959a698fabdcb7c605097e3c17b5e4dba4565",
     "src/letf/cohorts.py": "40e0130a8fb174c9afb3216c17cf3d3da9a900cd3de8dbd2ef1a4778284d1c1c",
     "src/letf/data.py": "163c7c05fe1cc637d069fd80236691f53fa17d9d6494039f113bda92f25d142e",
-    "src/letf/falsification.py": "306fc2915f8a4bab39619e53a98088027fe37589664ac08d1610a45c2ac7bdd6",
-    "src/letf/falsification_report.py": "41a3b1b2c6bfc994c7622e4b3756570dbf8e7d31756776e3a1c3d536d2cf3c15",
+    "src/letf/falsification.py": "a7861db4fde3080d7074d8951e7687fe9b3d0c59dd1900c72bd36898df1b9753",
+    "src/letf/falsification_report.py": "f633da59a65f31d1bebaef8482666efc3a3155c0a1c49a073ca8bba0936d43fb",
     "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
     "src/letf/pipeline.py": "30a3eef47cc7cda24a7fd17c50bfa20801df3ff2a8282e34eb330a85cfee2aae",
     "src/letf/provenance.py": "7119922d34f49001721b41dc786cd6bae14a092c463c827997a31d5a64489264",
     "src/letf/reserve.py": "74d4826ca98902200d05ea53a33576ee0d9b9b099a4676cce6a70a1fb76d08d5",
     "src/letf/reserve_report.py": "ea2e1f7092804d2c0a693f6e16ee8da448e874af5c6a42354ad6e1ccae19832d",
     "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
-    "src/letf/strategy.py": "6f5ed4f12831ca733256a9cae9c20beb43ac2f93a4daadbe1c8a804cbab1af16"
+    "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe"
   },
   "rules": {
     "NO_RESERVE": {

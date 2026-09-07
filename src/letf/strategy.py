@@ -19,7 +19,6 @@ A round trip therefore compounds: at 50bp, off-and-back costs
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 __all__ = ['transitions', 'rotation_turnover', 'apply_costs', 'switching_costs',

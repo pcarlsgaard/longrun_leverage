@@ -6,6 +6,13 @@ The weaker claim—1× risk-off produces more full-history wealth than T-bills�
 but reverses in 2000–2009. Neither claim meets the requested “Robust” standard across historical subperiods.
 Execution timing materially changes the magnitude, especially around the 1987 crash.
 
+**Before quoting any advantage below:** `reports/signal_null_model_results.md`
+tests these strategies against a null with the same switch count, episode
+lengths and leveraged-day fraction but randomized timing. None is significant
+at 5% after correcting for the 144 nuisance-parameter cells searched here, and
+every one has a top-20-session share above 100% of its total advantage — the
+remaining ~10,000 sessions are net negative.
+
 Matched primary entry close **1986-09-26**, through **2026-09-02**. Nominal wealth per $1;
 no contributions, withdrawals or investor taxes. The existing synthetic returns, cash accrual, funding assumptions,
 portfolio/SMA framework and validation are unchanged. The prior common portfolio window is retained, with sufficient

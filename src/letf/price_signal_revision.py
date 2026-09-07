@@ -257,7 +257,7 @@ def run(root: Path):
     for _,r in stress.iterrows():
         if r.legacy_first_riskoff_signal != r.revised_first_riskoff_signal:
             material.append(f"- {r['event']} {r['lag']}: legacy first risk-off {r.legacy_first_riskoff_signal or 'none'}; price-only {r.revised_first_riskoff_signal or 'none'}.")
-    concentration = {lag: edge_concentration(primary[(f'UPRO_SMA_TO_SP500',lag,PRIMARY_COST)],
+    concentration = {lag: edge_concentration(primary[('UPRO_SMA_TO_SP500',lag,PRIMARY_COST)],
                                              primary[('UPRO_ALWAYS',lag,PRIMARY_COST)])
                      for lag in LAGS}
     regime=pd.DataFrame(alt_rows)
@@ -292,7 +292,7 @@ def run(root: Path):
         f'Price and legacy total-return SMA states differ on only {pct(old1.signal_disagreement_fraction)} of sessions,',
         'so the aggregate gap is produced by a small set of disagreement dates rather than',
         'by a different average leverage budget. The stress table above names them.', '',
-        f'The single most important is 1987. Under LAG2 the legacy total-return signal is',
+        'The single most important is 1987. Under LAG2 the legacy total-return signal is',
         'still leveraged into the 1987-10-19 crash while the price signal is already out,',
         'because the price index crossed its moving average one session earlier. That one',
         'session, not a broad improvement in timing, is what separates the two LAG2 CAGRs',

@@ -188,6 +188,13 @@ fails to deliver robust net matched-leverage gains. The evidence supports positi
 growth plus controlled volatility as the economic foundation; it does **not** establish
 high observed efficiency, low sign churn, or faster momentum as additional useful triggers.
 
+**Before quoting any advantage below:** `reports/signal_null_model_results.md`
+tests these strategies against a null with the same switch count, episode
+lengths and leveraged-day fraction but randomized timing. None is significant
+at 5% after correcting for the 144 nuisance-parameter cells searched here, and
+every one has a top-20-session share above 100% of its total advantage — the
+remaining ~10,000 sessions are net negative.
+
 ## Signal overlap and long-horizon check
 
 LAG1 agreement with the existing SMA; the compact CSV contains the complete pairwise

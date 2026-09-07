@@ -2,7 +2,6 @@
 import argparse
 import json
 from pathlib import Path
-import numpy as np
 import pandas as pd
 from .analysis import CASH, load_inputs, matched, path, sha
 from .falsification import load_price_signals

@@ -1,5 +1,4 @@
 """Compact, reproducible interpretation of prespecified falsification outputs."""
-from pathlib import Path
 import json
 
 import numpy as np
@@ -41,6 +40,13 @@ It survives the extra session at zero, 10 and 25 bp per switch; at 50 bp **combi
 The weaker claim—1× risk-off produces more full-history wealth than T-bills—survives the parameter grid,
 but reverses in 2000–2009. Neither claim meets the requested “Robust” standard across historical subperiods.
 Execution timing materially changes the magnitude, especially around the 1987 crash.
+
+**Before quoting any advantage below:** `reports/signal_null_model_results.md`
+tests these strategies against a null with the same switch count, episode
+lengths and leveraged-day fraction but randomized timing. None is significant
+at 5% after correcting for the 144 nuisance-parameter cells searched here, and
+every one has a top-20-session share above 100% of its total advantage — the
+remaining ~10,000 sessions are net negative.
 
 Matched primary entry close **{manifest['entry_close']}**, through **{manifest['as_of']}**. Nominal wealth per $1;
 no contributions, withdrawals or investor taxes. The existing synthetic returns, cash accrual, funding assumptions,

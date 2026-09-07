@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import numpy as np
 import pandas as pd
 
 from .analysis import CASH, load_inputs, matched
@@ -132,7 +131,7 @@ def report(root, df, subs, cohorts, agreements):
 
     lines += [
         '', '## How many of these comparisons are independent?', '',
-        f'Holding the off-sleeve, SMA length, financing spread, execution lag and switching',
+        'Holding the off-sleeve, SMA length, financing spread, execution lag and switching',
         f'cost fixed and varying only the signal index gives {total} paired comparisons. The',
         f'S&P signal has the higher CAGR in {wins}/{total} ({p(wins / total)}) of them.', '',
         '**That fraction is not {n} pieces of evidence.**'.format(n=total),

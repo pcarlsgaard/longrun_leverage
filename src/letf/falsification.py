@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .analysis import (CASH, FAMILIES, REGIMES, load_inputs, matched, sma_position,
+from .analysis import (CASH, FAMILIES, REGIMES, load_inputs, matched,
                        extended_metrics, path, sha)
 from .cohorts import cohort_cagrs, nav_path, worst_cagr
 from .data import cached_source, yahoo
