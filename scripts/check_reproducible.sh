@@ -27,32 +27,4 @@ scripts/regenerate.sh
 
 python scripts/compare_results.py
 
-python - <<'CHECK'
-import json, subprocess, sys
-
-ENVIRONMENTAL = {'python', 'numpy', 'pandas', 'scipy', 'matplotlib', 'platform'}
-
-
-def strip(text):
-    return {k: v for k, v in json.loads(text).items() if k not in ENVIRONMENTAL}
-
-
-names = subprocess.run(['git', 'diff', '--name-only', '--', 'reports/*_manifest.json'],
-                       capture_output=True, text=True, check=True).stdout.split()
-stale = []
-for name in names:
-    committed = subprocess.run(['git', 'show', f'HEAD:{name}'],
-                               capture_output=True, text=True, check=True).stdout
-    with open(name) as handle:
-        if strip(committed) != strip(handle.read()):
-            stale.append(name)
-if stale:
-    print('Manifests record inputs or sources that no longer produced these results:',
-          file=sys.stderr)
-    for name in stale:
-        print(f'  {name}', file=sys.stderr)
-    sys.exit(1)
-CHECK
-
-echo 'All committed .csv and .md results reproduce exactly, and every manifest'
-echo 'records the inputs and sources that produced them.'
+python scripts/compare_manifests.py

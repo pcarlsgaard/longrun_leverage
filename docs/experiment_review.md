@@ -71,6 +71,11 @@ would have caught:
   anything that would change a conclusion, two orders above the noise. Seven
   tests confirm it still fails on a changed number, a changed label, a dropped
   row, a hand-edited report and an orphan file, and passes on last-digit noise.
+  The manifest check needed the same treatment for the same reason
+  (`scripts/compare_manifests.py`, nine more tests): it compares input hashes,
+  source hashes, windows and parameter grids, and ignores recorded runtime
+  versions wherever they are nested plus digests of generated files, which
+  would otherwise smuggle byte-identity back in through a hash.
 
 The findings below are the original assessment, unchanged.
 

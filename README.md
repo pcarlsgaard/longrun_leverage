@@ -253,9 +253,11 @@ The second script is a CI job. Every committed `.csv` and `.md` under
 relative. Numbers get a tolerance because byte identity is unachievable for
 them — these results accumulate arithmetic over ~10,000 sessions and different
 numpy builds order it differently, moving the last digit by ~2e-10 whatever
-output precision is chosen. Manifests are checked on their non-environmental
-fields; `*.png` is excluded, since matplotlib output is not reproducible across
-platforms.
+output precision is chosen. Manifests are checked on the fields that answer "what
+inputs and what code made this?" — input hashes, source hashes, windows,
+parameter grids — ignoring recorded runtime versions and digests of generated
+files, both of which are environmental. `*.png` is excluded entirely, since
+matplotlib output is not reproducible across platforms.
 
 **No committed report may be edited by hand** — a generator writes the same
 path and will silently discard the edit. Analysis that belongs in a report
