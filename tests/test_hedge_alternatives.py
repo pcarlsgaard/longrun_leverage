@@ -3,9 +3,10 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from letf.hedge_alternatives import (_table, cagr, concentration_table, constant_leverage,
+from letf.hedge_alternatives import (cagr, concentration_table, constant_leverage,
                                      describe, duration_sweep, implied_financing,
-                                     max_drawdown, window_table)
+                                     markdown_table, max_drawdown,
+                                     window_table)
 
 
 def constant(rate, index):
@@ -81,7 +82,7 @@ class TableTests(unittest.TestCase):
 class MarkdownTests(unittest.TestCase):
     def test_formats_by_column_and_keeps_alignment(self):
         frame = pd.DataFrame([{'name': 'a', 'share': .1234}, {'name': 'b', 'share': np.nan}])
-        out = _table(frame, ['name', 'share'], {'share': '.1%'})
+        out = markdown_table(frame, ['name', 'share'], {'share': '.1%'})
         lines = out.splitlines()
         self.assertEqual(lines[0], '| name | share |')
         self.assertEqual(lines[1], '|---|---:|')
