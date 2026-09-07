@@ -17,3 +17,4 @@ python -m letf.price_signal_revision
 python -m letf.cohort_distributions
 python -m letf.cross_index_signal
 python -m letf.null_model
+python -m letf.hedge_alternatives

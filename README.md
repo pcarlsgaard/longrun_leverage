@@ -241,6 +241,43 @@ describes those sessions, not a repeatable edge.
 PYTHONPATH=src python -m letf.null_model
 ```
 
+## If the edge is twenty days, what should be bought instead?
+
+A rule that trails its benchmark on ~10,000 sessions and is repaid in crashes is
+a synthetic put bought on instalments. That makes the next question a pricing
+question, not a signal question, and
+[`letf.hedge_alternatives`](reports/hedge_alternatives_results.md) asks it. Four
+families on one window and one financing basis: the trend rule itself; static
+leveraged stock/bond mixes; simply holding less leverage; and rolling long-dated
+calls against a fixed safe sleeve.
+
+Three things it reports that the batteries above do not:
+
+* **The hedges fail in different regimes.** No structure cushions more than
+  three of the five crashes best, and the bond mixes did *worse than no hedge*
+  in 2022, when duration and equity fell together.
+* **Concentration is a property of a pair, not of a strategy.** Measured against
+  always-on 3x leverage almost everything looks like a twenty-day effect, because
+  a benchmark that falls 98% can only be beaten in a crash. Measured against the
+  unleveraged index, most of it does not.
+* **A bounded loss per contract is not a bounded loss per portfolio.** An option
+  re-struck to a constant multiple of *current* wealth compounds losses across
+  rolls and lands worse than the daily-reset fund it was meant to improve on.
+
+**The option rows are modelled, not measured, and are the weakest evidence in
+this repository.** There are no option prices here and no network access to
+obtain any, so premia are Black-Scholes values on an assumed implied volatility.
+The report's headline for that family is therefore a **break-even volatility** —
+how expensive options must have been for the structure to lose — which puts the
+unmeasured input in the output where a reader can apply their own view. On that
+measure the option structures beat daily-reset leverage by about four volatility
+points, and do **not** reliably beat the hedged alternatives: break-even there
+sits within the assumption's own error bar.
+
+```bash
+PYTHONPATH=src python -m letf.hedge_alternatives
+```
+
 ## Reproducing every committed result
 
 ```bash
@@ -284,6 +321,14 @@ Collected rather than scattered, because they bound every result above:
   stand in for index and Treasury history before their coverage.
 - **Idealized execution.** Close-to-close, no market impact, no taxes, no
   contributions, withdrawals or inflation adjustment.
+- **Modelled option prices.** The `LEAPS_` rows in the hedge comparison are the
+  only results here not computed from realized prices. No option price or
+  implied-volatility history is available to this repository, so premia are
+  Black-Scholes values on an assumed volatility, and the break-even table exists
+  because a point estimate would not be honest.
+- **One rate regime.** The whole window is a secular decline in yields, so the
+  leveraged-Treasury leg of any hedged structure is itself a single-regime bet,
+  in exactly the way October 1987 is for the trend rule.
 
 A full methodological and code review of the experiments is in
 [docs/experiment_review.md](docs/experiment_review.md).
