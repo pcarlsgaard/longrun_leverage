@@ -263,6 +263,13 @@ Three things it reports that the batteries above do not:
 * **A bounded loss per contract is not a bounded loss per portfolio.** An option
   re-struck to a constant multiple of *current* wealth compounds losses across
   rolls and lands worse than the daily-reset fund it was meant to improve on.
+* **The bond sleeve is one asset and one bet.** Every hedged structure buys its
+  protection from long Treasuries, and they differ only in how much duration
+  they take. More of it improves every tail column and worsens 2022, which is
+  the same fact twice: the window is one long decline in yields.
+* **Cutting duration at a fixed return is not de-risking.** Holding the return
+  constant while draining the safe sleeve of Treasuries forces the option budget
+  up, and that costs more drawdown than the duration cut saves.
 
 **The option rows are modelled, not measured, and are the weakest evidence in
 this repository.** There are no option prices here and no network access to

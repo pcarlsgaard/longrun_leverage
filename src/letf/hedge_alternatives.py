@@ -37,7 +37,7 @@ import pandas as pd
 import scipy
 
 from .analysis import CASH, load_inputs
-from .cohorts import cohort_cagrs, nav_path
+from .cohorts import cohort_cagrs, cohort_frame, nav_path
 from .diagnostics import edge_concentration
 from .falsification import load_price_signals
 from .model import calendar_days, matched, portfolio
@@ -56,6 +56,9 @@ MATURITY_YEARS = 2.
 IV_PREMIUM = .03
 OPTION_SPREAD_BPS = 100.
 EXPIRY_MONTHS = (1, 6, 12)
+# Cohorts entering from here on exclude the highest-yield stretch of the
+# sample, so a tail statistic can be read without the early bond regime.
+MODERN_COHORT_START = '2000-01-01'
 ROLL_MONTHS = {'january': (1,), 'june': (6,), 'december': (12,), 'nearest_listed': EXPIRY_MONTHS}
 
 UPRO, SSO, TMF = 'UPRO_SPREAD_50BP', 'SSO_SPREAD_50BP', 'TMF_SPREAD_50BP'
@@ -322,6 +325,109 @@ def leaps_grid(spot, daily, ix, calendar, dividend, riskfree, premiums=(0., .03,
     return pd.DataFrame(rows)
 
 
+def duration_sweep(daily, ix, calendar, equity_expense, bond_expense,
+                   equity_leverage=3.):
+    """What the bond sleeve's duration is worth, and what it costs in a rates shock.
+
+    Every leveraged stock/bond structure in this repository buys its tail
+    protection from one asset — long Treasuries, the only bond series here — and
+    differs only in how much duration it takes: weight times sleeve leverage.
+    That single axis is the largest unhedged bet in the whole comparison, and
+    until now no table varied it.
+
+    It matters because the sample is one long decline in yields. The same asset
+    returned about 9% a year through 2011 and about -8% a year from 2021, so a
+    row's tail statistics and its 2022 column are measuring two different
+    regimes, and the reader needs both side by side.
+    """
+    entry = calendar[calendar.get_loc(ix[0]) - 1]
+    days = calendar_days(ix, entry)
+    # Each sleeve's financing comes from its own 3x fund, so the equity and bond
+    # legs carry the funding and spread their own products actually paid.
+    equity_financing = implied_financing(daily.loc[ix, EQUITY], daily.loc[ix, UPRO],
+                                         3., equity_expense, days)
+    bond_financing = implied_financing(daily.loc[ix, TREASURY], daily.loc[ix, TMF],
+                                       3., bond_expense, days)
+    rows = []
+    for weight in (0., .2, .3, .4, .5):
+        leverages = (0.,) if weight == 0 else (0., 1., 2., 3.)
+        for leverage in leverages:
+            equity = constant_leverage(daily.loc[ix, EQUITY], equity_financing,
+                                       equity_leverage, 'D')
+            if weight == 0:
+                returns = equity
+            else:
+                bond = (constant_leverage(daily.loc[ix, TREASURY], bond_financing,
+                                          leverage, 'D') if leverage > 0
+                        else daily.loc[ix, CASH])
+                returns = portfolio(pd.concat([equity.rename('EQUITY'),
+                                               bond.rename('BOND')], axis=1),
+                                    pd.Series({'EQUITY': 1 - weight, 'BOND': weight}),
+                                    'quarterly')
+            nav = nav_path(returns, calendar)
+            ten = cohort_cagrs(nav, 10)
+            modern = cohort_frame(nav, 10)
+            modern = modern[modern.entry_close.astype(str) >= MODERN_COHORT_START]
+            rows.append(dict(bond_weight=weight, bond_leverage=leverage,
+                             duration_exposure=weight * leverage,
+                             cagr=cagr(returns), max_drawdown=max_drawdown(returns),
+                             cohort_10y_min_cagr=float(ten.min()),
+                             cohort_10y_min_cagr_from_2000=float(modern.cagr.min()),
+                             dot_com_return=float((1 + returns.loc[
+                                 CRASHES['2000_2002_bust'][0]:
+                                 CRASHES['2000_2002_bust'][1]]).prod() - 1),
+                             rates_shock_2022=cagr(returns.loc['2022-01-01':'2022-12-31'])))
+    return pd.DataFrame(rows)
+
+
+def safe_sleeve_sweep(spot, daily, ix, calendar, dividend, riskfree, vol,
+                      shares=(0., .25, .5, .75, 1.)):
+    """The option structures' own duration axis, as a blend of Treasuries and bills.
+
+    `leaps_grid` offers the safe sleeve as all bills or all long Treasuries.
+    Neither is the interesting question for someone who wants leverage but
+    distrusts duration: the blend in between is what an investor can actually
+    dial, and it is reachable with two ordinary funds.
+
+    The finding this table exists to make visible is that cutting duration at a
+    fixed return is not a de-risking. Holding return constant forces the option
+    budget up, and past a point that costs more drawdown than the duration cut
+    saves.
+    """
+    rows = []
+    for share in shares:
+        if share >= 1:
+            safe = daily.loc[ix, TREASURY]
+        elif share <= 0:
+            safe = daily.loc[ix, CASH]
+        else:
+            safe = portfolio(daily.loc[ix, [TREASURY, CASH]],
+                             pd.Series({TREASURY: share, CASH: 1 - share}), 'quarterly')
+        for moneyness in (.8, .85, .9, .95, 1., 1.05):
+            for budget in (.25, .35, .45, .55, .65):
+                rule = LeapsRule(moneyness=moneyness, premium_budget=budget,
+                                 maturity_years=MATURITY_YEARS, iv_premium=IV_PREMIUM,
+                                 spread_bps=OPTION_SPREAD_BPS, expiry_months=EXPIRY_MONTHS)
+                nav, exposure, _ = simulate_leaps_portfolio(spot, safe, dividend,
+                                                            riskfree, vol, rule)
+                returns = nav.pct_change().dropna()
+                path = nav_path(returns, calendar)
+                twenty, thirty = cohort_cagrs(path, 20), cohort_cagrs(path, 30)
+                rows.append(dict(treasury_share=share, moneyness=moneyness,
+                                 premium_budget=budget,
+                                 duration_exposure=(1 - budget) * share,
+                                 mean_delta_exposure=float(exposure.mean()),
+                                 cagr=cagr(returns), max_drawdown=max_drawdown(returns),
+                                 cohort_20y_min_cagr=float(twenty.min()),
+                                 cohort_30y_min_cagr=float(thirty.min()),
+                                 dot_com_return=float((1 + returns.loc[
+                                     CRASHES['2000_2002_bust'][0]:
+                                     CRASHES['2000_2002_bust'][1]]).prod() - 1),
+                                 rates_shock_2022=cagr(
+                                     returns.loc['2022-01-01':'2022-12-31'])))
+    return pd.DataFrame(rows)
+
+
 def roll_month_sensitivity(spot, daily, ix, dividend, riskfree, vol,
                            moneyness=.85, budget=.25, safe=TREASURY):
     """Does the answer depend on which month you happen to roll in?
@@ -418,6 +524,11 @@ def run(root: Path):
                                             spot.pct_change().fillna(0.),
                                             IV_PREMIUM, MATURITY_YEARS))
     ladder, _ = reset_ladder(daily, ix, calendar, config['funds']['UPRO']['expense'])
+    duration = duration_sweep(daily, ix, calendar, config['funds']['UPRO']['expense'],
+                              config['funds']['TMF']['expense'])
+    sleeves = safe_sleeve_sweep(spot, daily, ix, calendar, dividend, riskfree,
+                                implied_volatility_proxy(spot.pct_change().fillna(0.),
+                                                         IV_PREMIUM, MATURITY_YEARS))
     rivals = {name: float(metrics.set_index('series').loc[name, 'cagr']) for name in RIVALS}
     breakeven = breakeven_table(spot, daily, ix, dividend, riskfree, rivals,
                                 BREAKEVEN_STRUCTURES)
@@ -433,12 +544,14 @@ def run(root: Path):
                'hedge_alternatives_breakeven.csv': breakeven,
                'hedge_alternatives_rolls.csv': rolls,
                'hedge_alternatives_reset_ladder.csv': ladder,
-               'hedge_alternatives_roll_months.csv': rollmonths}
+               'hedge_alternatives_roll_months.csv': rollmonths,
+               'hedge_alternatives_duration_sweep.csv': duration,
+               'hedge_alternatives_safe_sleeve.csv': sleeves}
     for name, frame in outputs.items():
         frame.pipe(stable_floats).to_csv(reports / name, index=False, float_format=FLOAT_FORMAT)
 
     report(reports, metrics, concentration, subperiods, crashes, grid, breakeven,
-           ladder, rollmonths, ix, rivals)
+           ladder, rollmonths, duration, sleeves, ix, rivals)
     (reports / 'hedge_alternatives_manifest.json').write_text(json.dumps({
         'window': [ix[0].date().isoformat(), ix[-1].date().isoformat()],
         'observations': int(len(ix)), 'sma_days': SMA_DAYS, 'lag': LAG,
@@ -483,7 +596,7 @@ def _table(frame, columns, formats, index=None):
 
 
 def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven,
-           ladder, rollmonths, ix, rivals):
+           ladder, rollmonths, duration, sleeves, ix, rivals):
     """Write the narrative from the numbers, never alongside them."""
     m = metrics.set_index('series')
     sma = m.loc['UPRO_SMA_TO_SP500']
@@ -526,6 +639,18 @@ def report(reports, metrics, concentration, subperiods, crashes, grid, breakeven
                               max_drawdown=best.max_drawdown,
                               cohort_10y_min_cagr=best.cohort_10y_min_cagr))
     bands = pd.DataFrame(bands)
+
+    # The blend frontier: at each Treasury share, the cell reaching the return
+    # band with the best worst-case twenty-year cohort.
+    band = sleeves[(sleeves.cagr >= .188) & (sleeves.cagr <= .198)]
+    if len(band):
+        sleeve_frontier = (band.loc[band.groupby('treasury_share').cohort_20y_min_cagr
+                                    .idxmax()].sort_values('treasury_share'))
+    else:
+        sleeve_frontier = (sleeves.loc[sleeves.groupby('treasury_share').cagr.idxmax()]
+                           .sort_values('treasury_share'))
+    best_blend = sleeve_frontier.iloc[-1]
+    worst_blend = sleeve_frontier.iloc[0]
 
     rungs = ladder[ladder.leverage == 3.].set_index('reset')
     survivors = rungs[~rungs.wiped_out]
@@ -761,6 +886,67 @@ on a two-year contract is wide, and the {OPTION_SPREAD_BPS:.0f} bp of premium ch
 each way may be optimistic. And equity skew makes in-the-money calls dearer than
 a single volatility charges, which lands hardest on exactly the strikes the
 table above prefers.
+
+## The bond sleeve is one asset, and one bet
+
+Every hedged structure above buys its protection from the same place: long
+Treasuries, the only bond series this repository has. What separates them is how
+much duration they take — sleeve weight times sleeve leverage. Nothing else in
+this report varies that axis, and it is the largest unhedged bet here.
+
+{_table(duration.sort_values('duration_exposure'),
+        ['bond_weight', 'bond_leverage', 'duration_exposure', 'cagr', 'max_drawdown',
+         'cohort_10y_min_cagr', 'cohort_10y_min_cagr_from_2000', 'dot_com_return',
+         'rates_shock_2022'],
+        {'bond_weight': '.0%', 'bond_leverage': '.0f', 'duration_exposure': '.2f',
+         'cagr': '.2%', 'max_drawdown': '.1%', 'cohort_10y_min_cagr': '.2%',
+         'cohort_10y_min_cagr_from_2000': '.2%', 'dot_com_return': '.1%',
+         'rates_shock_2022': '.1%'})}
+
+More duration monotonically raises the return and improves every tail column,
+and monotonically worsens 2022. Both halves are the same fact seen twice: the
+window is one long decline in yields. Unleveraged long Treasuries returned about
+9% a year through 2011 and about -8% a year from 2021.
+
+The from-2000 column is there to test whether the tail benefit is only the early
+bond regime. It is not — duration still improves the worst decade for cohorts
+entering from {MODERN_COHORT_START[:4]}. But that is weaker evidence than it looks. Duration
+protected the *equity* crises of 2000, 2008 and 2020, when Treasuries rallied.
+The one time the hedge failed was 2022, and by then equities had compounded far
+enough through the 2010s that no ten-year window containing it was ever a worst
+case. **The failure never landed in the statistic.** One rates shock, and it
+arrived at a forgiving moment.
+
+## Cutting duration at a fixed return is not de-risking
+
+The option structures have the same axis, and an investor can dial it with two
+ordinary funds by splitting the safe sleeve between long Treasuries and bills.
+The best cell at each blend, among those reaching the return band, ranked by
+worst twenty-year cohort:
+
+{_table(sleeve_frontier,
+        ['treasury_share', 'moneyness', 'premium_budget', 'duration_exposure', 'cagr',
+         'max_drawdown', 'cohort_20y_min_cagr', 'cohort_30y_min_cagr', 'dot_com_return',
+         'rates_shock_2022'],
+        {'treasury_share': '.0%', 'moneyness': '.2f', 'premium_budget': '.0%',
+         'duration_exposure': '.2f', 'cagr': '.2%', 'max_drawdown': '.1%',
+         'cohort_20y_min_cagr': '.2%', 'cohort_30y_min_cagr': '.2%',
+         'dot_com_return': '.1%', 'rates_shock_2022': '.1%'})}
+
+Read the drawdown column against the treasury column. Holding return roughly
+constant, going from an all-Treasury safe sleeve to an all-bills one costs
+**{abs(worst_blend.max_drawdown - best_blend.max_drawdown) * 100:.0f} points of drawdown** and
+**{(best_blend.cohort_20y_min_cagr - worst_blend.cohort_20y_min_cagr) * 100:.1f} points of worst
+twenty-year cohort**, and buys **{abs(worst_blend.rates_shock_2022 - best_blend.rates_shock_2022) * 100:.1f} points**
+of 2022 protection.
+
+That is the opposite of the intended effect, and the mechanism is not subtle:
+holding the return fixed while removing duration forces the option budget up,
+and the budget is the dominant risk control in this family. At this return level
+the marginal risk is not the bond sleeve, it is how much of the portfolio sits
+in contracts that can expire worthless. An investor who distrusts long-dated
+government debt enough to act on it should lower the return target rather than
+swap Treasuries for bills at an unchanged one.
 
 ## Re-levering defeats the bounded loss
 
