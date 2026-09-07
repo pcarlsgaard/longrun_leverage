@@ -11,8 +11,13 @@
   "option_spread_bps": 100.0,
   "iv_premium": 0.03,
   "maturity_years": 2.0,
+  "expiry_months": [
+    1,
+    6,
+    12
+  ],
   "target_exposure": 3.0,
-  "leaps_grid_rows": 192,
+  "leaps_grid_rows": 504,
   "option_prices": "modelled with Black-Scholes on an assumed implied volatility; this repository holds no option price history",
   "python": "3.11.15",
   "numpy": "2.4.6",
@@ -26,22 +31,23 @@
     "src/letf/diagnostics.py": "28f71f304c692e103a79b8fcfc3dec04c50c9e8f8652b9a5d6e6e9bd683db0d6",
     "src/letf/falsification.py": "af5722b9b1a5785d4ae0e4583243c5beeaa58172525d1101af5fa6e44915ebb7",
     "src/letf/falsification_report.py": "f633da59a65f31d1bebaef8482666efc3a3155c0a1c49a073ca8bba0936d43fb",
-    "src/letf/hedge_alternatives.py": "e5b3504ba4a0d525d3da3f7f1e7da0c8c34f75239ef13fb8ae7f1ce463b8db00",
+    "src/letf/hedge_alternatives.py": "bd4e8c6f47bc8b81c6651fea0e99ae3e5f32fc8269aebc24b78037fdcf301d6a",
     "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
-    "src/letf/options.py": "9bfb0ddd0b21b15a055a537f1350e85c409576af086ddc7561ddd11f1cf392c8",
+    "src/letf/options.py": "5e2c57c230e97fd147c9d079ae31eaa3694a7e86fc0b9f32fac5ae32b49e5811",
     "src/letf/pipeline.py": "7d60efd68b7e7400a2b0258c59655174e4faaf6c13a99a73343cb9f9eed1dd00",
     "src/letf/provenance.py": "9c7eba5487fdb5c77187c09aab600db46b190dc9f1d36d43b616233c6c7103d2",
     "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
     "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe"
   },
   "outputs_sha256": {
-    "hedge_alternatives_metrics.csv": "f8f57b73dfd36d53f19e433220180c71c6e442b6de826e7172eee1c597ab1a20",
-    "hedge_alternatives_concentration.csv": "d30cec82ba43c0342ebd9b128203161f6f8c8bc7eae3675a8fbd4bd64b86e168",
-    "hedge_alternatives_subperiods.csv": "47ff6bd4306230a13f3a4c05971f055a0d4a59578b22d548701922112a61bbe7",
-    "hedge_alternatives_crashes.csv": "c3d8995c3d1d8c38dba5885d7e30b18ec55c5e1e645bb1b58118c9c10549658b",
-    "hedge_alternatives_leaps_grid.csv": "ecc5c0e2adc2c50218eefba016d35444aa2e3a0b0d58aa71fda7f0923d6d6f2f",
-    "hedge_alternatives_breakeven.csv": "69c34e2e8504012bb618494ec7fc462efa73b622bff38302aa2f013f8d730022",
-    "hedge_alternatives_rolls.csv": "c490df0ffc0ca2b75cd2727975b4ecbc308553754597070cd18f92414ebad20b",
-    "hedge_alternatives_reset_ladder.csv": "64819a02b04fef0d5bb7ea8467281ba102393f8728973a0b8139207eef3902b3"
+    "hedge_alternatives_metrics.csv": "0fc9b8716d92a55cf035c041bb08e54fb4ae12e03da5249a58d3ef6835b3b0df",
+    "hedge_alternatives_concentration.csv": "f6e7b72cf741016495f63a313a58f48e3787e7b1f95dc867872ca9154a810cd4",
+    "hedge_alternatives_subperiods.csv": "b3afe273990c5777f3c35cc93c1bb537c21b0cf1ef66a060f5645e0ed0b8121c",
+    "hedge_alternatives_crashes.csv": "0814e8464952d47c357d55693c48ca5543d38e0d8a1ec65f0000c8c9c479519d",
+    "hedge_alternatives_leaps_grid.csv": "144bd73a34ee446198d30ed8812b7e71183af1ddce73bb00d7991d697ca08c80",
+    "hedge_alternatives_breakeven.csv": "9d596420ea02e6f2e9a557b39856462ac4cc923044c251b123bcba9563925d2f",
+    "hedge_alternatives_rolls.csv": "1db76b4d73b7bec7f3eaf80673c39e584d20ab90ab927bb3fe7a28b487cfef97",
+    "hedge_alternatives_reset_ladder.csv": "64819a02b04fef0d5bb7ea8467281ba102393f8728973a0b8139207eef3902b3",
+    "hedge_alternatives_roll_months.csv": "59e151fa37e428033f778fa53b631fa27f709ffaa56ad145c223cd7c504df1eb"
   }
 }
