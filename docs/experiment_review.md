@@ -46,16 +46,31 @@ would have caught:
 - The first version of the permutation null could silently return a draw with
   fewer switches than the real rule, when reordering made two same-state
   episodes adjacent and they merged. Replaced with a construction that cannot.
-- **C12 was diagnosed incompletely.** Cutting output precision to `%.10g` is
-  necessary but not sufficient, and the CI gate on a different Python/numpy
-  build is what proved it: `%g` prints its significant digits whatever the
-  exponent, so a quantity that is algebraically zero prints as
-  `-7.993605777e-14` on one platform and `-8.348877145e-14` on another — no
-  agreement in any digit, at any precision setting. Round-off is now snapped to
-  exact zero on write (`provenance.stable_floats`, threshold `1e-9`, chosen
-  from a five-order gap between the largest observed round-off ~1e-10 and the
-  smallest real quantity ~1e-6), and the identities those residual columns were
-  silently attesting are now asserted in code, where a tolerance belongs.
+- **C12 was diagnosed wrongly, twice, and the CI gate on a different
+  Python/numpy build is what corrected it both times.**
+
+  The review said `%.12g` was one digit past float64 stability and `%.10g`
+  would make the repo byte-reproducible. Neither half was right.
+
+  First: no precision setting fixes a quantity that is *algebraically* zero.
+  `%g` prints its significant digits whatever the exponent, so an identity
+  residual prints as `-7.993605777e-14` on one platform and `-8.348877145e-14`
+  on another — agreement in no digit at all. Round-off is now snapped to exact
+  zero on write (`provenance.stable_floats`, threshold `1e-9`, sitting in a
+  five-order gap between the largest observed round-off ~1e-10 and the smallest
+  real quantity ~1e-6), and the identities those columns had been silently
+  attesting are asserted in code, where a tolerance belongs.
+
+  Second, and more fundamental: **byte identity is the wrong requirement.**
+  Values that are genuinely non-zero still disagree in the tenth significant
+  figure across numpy 2.4.6 and 2.5.3, because these results accumulate
+  arithmetic over ~10,000 trading sessions and different builds order that
+  arithmetic differently. That is ~2e-10 relative and no output precision
+  removes it without discarding digits that are real. `scripts/compare_results.py`
+  now compares text exactly and numbers within 1e-8 relative — five orders below
+  anything that would change a conclusion, two orders above the noise. Seven
+  tests confirm it still fails on a changed number, a changed label, a dropped
+  row, a hand-edited report and an orphan file, and passes on last-digit noise.
 
 The findings below are the original assessment, unchanged.
 

@@ -51,7 +51,8 @@ class StableFloatTests(unittest.TestCase):
                 offenders.append(path.name)
         self.assertEqual(offenders, [])
 
-    def test_output_precision_is_inside_float64_stability(self):
+    def test_output_precision_is_fixed(self):
+        """Changing this rewrites every committed result, so it is pinned deliberately."""
         self.assertEqual(FLOAT_FORMAT, '%.10g')
 
 

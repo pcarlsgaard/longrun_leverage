@@ -20,11 +20,16 @@ __all__ = ['FLOAT_FORMAT', 'ZERO_TOLERANCE', 'sha', 'source_hashes', 'stable_flo
 
 # Output precision for every committed CSV.
 #
-# %.12g is one digit past what float64 arithmetic reproduces across numpy and
-# pandas versions: counts, minima and maxima stay byte-identical while the 12th
-# significant digit of derived statistics moves by ~1e-11 relative. That churn
-# is indistinguishable from a real change at a glance, and it defeats
-# scripts/check_reproducible.sh. %.10g is inside the stable range.
+# This reduces cross-version churn; it does not eliminate it, and it was a
+# mistake to think it could. These results accumulate arithmetic over ~10,000
+# trading sessions and different numpy builds order that arithmetic
+# differently, so the last digit of a derived statistic moves by ~2e-10
+# relative between platforms whatever precision is chosen — cutting further
+# would only discard digits that are real. scripts/compare_results.py therefore
+# compares numbers within a tolerance rather than byte for byte.
+#
+# Ten significant figures is well past anything economically meaningful and
+# keeps the files readable.
 FLOAT_FORMAT = '%.10g'
 
 # Below this, a value is round-off, not a quantity.

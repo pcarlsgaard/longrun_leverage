@@ -249,11 +249,17 @@ scripts/check_reproducible.sh  # and assert nothing changed
 ```
 
 The second script is a CI job. Every committed `.csv` and `.md` under
-`reports/` must be exactly what the code produces; `*_manifest.json` (which
-records runtime versions) and `*.png` (matplotlib is not byte-reproducible)
-are excluded. **No committed report may be edited by hand** — a generator
-writes the same path and will silently discard the edit. Analysis that belongs
-in a report belongs in the generator.
+`reports/` must be what the code produces: text exactly, numbers within 1e-8
+relative. Numbers get a tolerance because byte identity is unachievable for
+them — these results accumulate arithmetic over ~10,000 sessions and different
+numpy builds order it differently, moving the last digit by ~2e-10 whatever
+output precision is chosen. Manifests are checked on their non-environmental
+fields; `*.png` is excluded, since matplotlib output is not reproducible across
+platforms.
+
+**No committed report may be edited by hand** — a generator writes the same
+path and will silently discard the edit. Analysis that belongs in a report
+belongs in the generator.
 
 ## Known limitations
 
