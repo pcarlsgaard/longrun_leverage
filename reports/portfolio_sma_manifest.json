@@ -1,0 +1,22 @@
+{
+  "as_of": "2026-09-02",
+  "inputs_sha256": {
+    "data/processed/daily_returns.csv": "344bb8118ea047aaae2f3cbff46b7e4c2ccfb7ba75f3131990c4d360c138a370",
+    "data/raw/fred_DTB3.csv": "7e27dd3dc9013578905b234a292d75732e86034df917491d932888030813c65a",
+    "config.json": "81650c61c509f432be9f9827d7f53109bbd3e8a016cf248edc0323cd3e85a715"
+  },
+  "input_bundle_sha256": "dbcc1d90710867480eb51d2133d4eb02fd312208c9a79ad6bdda234d8cffaea5",
+  "cash_source": {
+    "file": "fred_DTB3.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3",
+    "bytes": 300873,
+    "sha256": "7e27dd3dc9013578905b234a292d75732e86034df917491d932888030813c65a",
+    "cached_file_timestamp_utc": "2026-09-04T00:58:49.713044+00:00"
+  },
+  "cash_convention": "DTB3 discount basis; 91-day price conversion; previous calendar date observation carried forward; daily reinvestment; no mark-to-market",
+  "runtime": {
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "pandas": "2.2.3"
+  }
+}

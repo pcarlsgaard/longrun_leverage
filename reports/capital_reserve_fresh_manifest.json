@@ -1,0 +1,27 @@
+{
+  "cohort_kind": "fresh_investor_reset",
+  "cost_bps": [
+    0,
+    25
+  ],
+  "lags": [
+    1,
+    2
+  ],
+  "funds": [
+    "UPRO",
+    "SSO"
+  ],
+  "horizons": [
+    20,
+    30
+  ],
+  "cohort_rows": 20160,
+  "summary_sha256": "25923be766247de4c7e6ededdd6b2be9c41d1b688fc8902f98c6a1d6754cb8b9",
+  "input_bundle_sha256": "dbcc1d90710867480eb51d2133d4eb02fd312208c9a79ad6bdda234d8cffaea5",
+  "config_sha256": "81650c61c509f432be9f9827d7f53109bbd3e8a016cf248edc0323cd3e85a715",
+  "source_hashes": {
+    "src/letf/reserve.py": "9e8b59caade5da9ddc928b4b80f295759e9f520d09a9fd9bbd566693f0dc610e",
+    "src/letf/reserve_cohorts.py": "eeb56509d228fe3eb978bb9f54d55c80d1aa2b103f0d89c4d32705abf2c2d81d"
+  }
+}
