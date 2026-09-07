@@ -85,3 +85,12 @@ handful of days, and the largest of them cluster in October 1987, February 2001
 and October 2008. Do not quote a CAGR gap from this repository without this
 column beside it.
 
+## If the edge is twenty days, what should be bought instead?
+
+A rule that trails its benchmark on the other sessions and is repaid in
+crashes is a synthetic put bought on instalments, which makes the next
+question a pricing question rather than a signal question.
+`reports/hedge_alternatives_results.md` compares this rule against static
+leveraged stock/bond mixes, simply holding less leverage, and rolling
+long-dated calls, on this same window and financing basis.
+

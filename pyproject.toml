@@ -20,6 +20,7 @@ longrun-leverage-cohorts = "letf.cohort_distributions:main"
 longrun-leverage-cross-index = "letf.cross_index_signal:main"
 longrun-leverage-regimes = "letf.regime_signals:main"
 longrun-leverage-null-model = "letf.null_model:main"
+longrun-leverage-hedges = "letf.hedge_alternatives:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
