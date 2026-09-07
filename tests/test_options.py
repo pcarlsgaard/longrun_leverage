@@ -1,0 +1,204 @@
+import unittest
+
+import numpy as np
+import pandas as pd
+
+from letf.options import (LeapsRule, black_scholes_call, break_even_iv_premium, call_delta,
+                          implied_volatility_proxy, simulate_leaps_portfolio,
+                          trailing_dividend_yield, trailing_riskfree)
+
+
+class BlackScholesTests(unittest.TestCase):
+    def test_matches_published_values(self):
+        self.assertAlmostEqual(float(black_scholes_call(100, 100, .05, 0, .2, 1)), 10.450584, 5)
+        self.assertAlmostEqual(float(call_delta(100, 100, .05, 0, .2, 1)), .636831, 5)
+
+    def test_put_call_parity_holds(self):
+        spot, strike, rate, div, vol, years = 100., 80., .04, .02, .25, 2.
+        call = float(black_scholes_call(spot, strike, rate, div, vol, years))
+        put = call - spot * np.exp(-div * years) + strike * np.exp(-rate * years)
+        # Reprice the put independently through the symmetric formula.
+        forward = spot * np.exp((rate - div) * years)
+        sigma = vol * np.sqrt(years)
+        d1 = np.log(forward / strike) / sigma + sigma / 2
+        from scipy.special import ndtr
+        expected = np.exp(-rate * years) * (strike * ndtr(sigma - d1) - forward * ndtr(-d1))
+        self.assertAlmostEqual(put, float(expected), 10)
+
+    def test_expiry_pays_intrinsic(self):
+        self.assertEqual(float(black_scholes_call(120, 100, .04, .02, .25, 0)), 20.)
+        self.assertEqual(float(black_scholes_call(80, 100, .04, .02, .25, 0)), 0.)
+
+    def test_zero_volatility_is_discounted_forward_intrinsic(self):
+        value = float(black_scholes_call(100, 80, .04, .02, 0, 2))
+        expected = np.exp(-.04 * 2) * (100 * np.exp((.04 - .02) * 2) - 80)
+        self.assertAlmostEqual(value, expected, 10)
+
+    def test_delta_is_bounded_and_monotone_in_moneyness(self):
+        strikes = np.array([50., 80., 100., 130., 200.])
+        deltas = call_delta(100., strikes, .04, .02, .2, 1.)
+        self.assertTrue(np.all((deltas >= 0) & (deltas <= 1)))
+        self.assertTrue(np.all(np.diff(deltas) < 0))
+
+    def test_value_rises_with_volatility(self):
+        vols = np.array([.1, .2, .3, .4])
+        values = black_scholes_call(100., 100., .04, .02, vols, 2.)
+        self.assertTrue(np.all(np.diff(values) > 0))
+
+    def test_negative_spot_is_rejected(self):
+        with self.assertRaises(ValueError):
+            black_scholes_call(-1, 100, .04, .02, .2, 1)
+
+
+class InputProxyTests(unittest.TestCase):
+    def setUp(self):
+        self.ix = pd.bdate_range('2000-01-03', periods=800)
+
+    def test_dividend_yield_recovers_a_known_constant(self):
+        price = pd.Series(np.exp(np.arange(len(self.ix)) * .0002), index=self.ix)
+        total = price.pct_change().fillna(0.) + .03 / 252
+        yields = trailing_dividend_yield(price, total)
+        self.assertAlmostEqual(float(yields.iloc[-1]), .03, 2)
+
+    def test_dividend_yield_fills_rather_than_zeroes_a_broken_stretch(self):
+        price = pd.Series(np.exp(np.arange(len(self.ix)) * .0002), index=self.ix)
+        total = price.pct_change().fillna(0.) + .03 / 252
+        total.iloc[:300] -= .002          # a fund proxy that badly undertracks
+        yields = trailing_dividend_yield(price, total)
+        self.assertTrue((yields > 0).all())
+        self.assertAlmostEqual(float(yields.iloc[0]), float(yields.iloc[-1]), 2)
+
+    def test_riskfree_recovers_the_annual_cash_return(self):
+        cash = pd.Series(np.full(len(self.ix), .04 / 252), index=self.ix)
+        self.assertAlmostEqual(float(trailing_riskfree(cash).iloc[-1]), .04, 3)
+
+    def test_volatility_proxy_is_lagged(self):
+        returns = pd.Series(np.full(len(self.ix), .001), index=self.ix)
+        returns.iloc[500] = -.20
+        vol = implied_volatility_proxy(returns, .0, horizon_years=1.)
+        # The crash session must not price its own option; the next one may.
+        self.assertAlmostEqual(float(vol.iloc[500]), float(vol.iloc[499]), 10)
+        self.assertGreater(float(vol.iloc[501]), float(vol.iloc[500]))
+
+    def test_volatility_premium_shifts_the_level(self):
+        returns = pd.Series(np.random.default_rng(3).normal(0, .01, len(self.ix)), index=self.ix)
+        base = implied_volatility_proxy(returns, .0)
+        raised = implied_volatility_proxy(returns, .05)
+        np.testing.assert_allclose(raised - base, .05, atol=1e-12)
+
+    def test_negative_lag_is_rejected(self):
+        returns = pd.Series(np.zeros(len(self.ix)), index=self.ix)
+        with self.assertRaises(ValueError):
+            implied_volatility_proxy(returns, .03, lag=-1)
+
+
+class SimulatorTests(unittest.TestCase):
+    def setUp(self):
+        self.closes = pd.bdate_range('2000-01-03', periods=1600)
+        rng = np.random.default_rng(11)
+        steps = rng.normal(.0003, .011, len(self.closes) - 1)
+        self.price = pd.Series(np.r_[100., 100 * np.exp(np.cumsum(steps))], index=self.closes)
+        self.safe = pd.Series(np.full(len(self.closes) - 1, .00015), index=self.closes[1:])
+        self.q = pd.Series(.02, index=self.closes)
+        self.r = pd.Series(.04, index=self.closes)
+        self.vol = pd.Series(.18, index=self.closes)
+
+    def simulate(self, **kwargs):
+        return simulate_leaps_portfolio(self.price, self.safe, self.q, self.r, self.vol,
+                                        LeapsRule(**kwargs))
+
+    def test_wealth_starts_at_one_and_stays_positive(self):
+        nav, _, _ = self.simulate(premium_budget=.4)
+        self.assertEqual(float(nav.iloc[0]), 1.)
+        self.assertTrue((nav > 0).all())
+
+    def test_fixed_budget_holds_the_safe_weight_constant(self):
+        _, _, rolls = self.simulate(premium_budget=.4)
+        np.testing.assert_allclose(rolls.safe_weight, .6, atol=1e-12)
+
+    def test_fixed_budget_floors_the_loss_within_one_roll(self):
+        """A collapse between rolls cannot cost more than the premium spent."""
+        crashing = self.price.copy()
+        crashing.iloc[400:] = crashing.iloc[400] * 1e-6
+        nav, _, rolls = simulate_leaps_portfolio(crashing, self.safe, self.q, self.r,
+                                                 self.vol, LeapsRule(premium_budget=.4))
+        opened = rolls[rolls.close <= self.closes[400]].iloc[-1]
+        start = float(nav.loc[opened.close])
+        self.assertGreater(float(nav.iloc[401]) / start, .59)
+
+    def test_restriking_does_not_floor_the_loss_across_rolls(self):
+        """The trap the report documents: bounded per contract, not per portfolio."""
+        crashing = self.price.copy()
+        crashing.iloc[300:] = crashing.iloc[300] * np.exp(
+            np.linspace(0, -6, len(crashing) - 300))
+        floored, _, _ = simulate_leaps_portfolio(crashing, self.safe, self.q, self.r,
+                                                 self.vol, LeapsRule(premium_budget=.4))
+        restruck, _, _ = simulate_leaps_portfolio(crashing, self.safe, self.q, self.r,
+                                                  self.vol, LeapsRule(premium_budget=None))
+        self.assertLess(float(restruck.iloc[-1]), float(floored.iloc[-1]))
+
+    def test_a_long_call_portfolio_never_gains_on_a_crash(self):
+        """Regression: a fast volatility proxy once made 1987-10-19 a 10% gain."""
+        shocked = self.price.copy()
+        shocked.iloc[700:] *= .80
+        vol = implied_volatility_proxy(shocked.pct_change().fillna(0.), .03, horizon_years=2.)
+        nav, _, _ = simulate_leaps_portfolio(shocked, self.safe, self.q, self.r, vol,
+                                             LeapsRule(premium_budget=.5))
+        self.assertLess(float(nav.iloc[700]) / float(nav.iloc[699]), 1.)
+
+    def test_costs_only_reduce_wealth(self):
+        free, _, _ = self.simulate(premium_budget=.4, spread_bps=0)
+        charged, _, _ = self.simulate(premium_budget=.4, spread_bps=200)
+        self.assertLess(float(charged.iloc[-1]), float(free.iloc[-1]))
+
+    def test_more_budget_buys_more_exposure(self):
+        _, small, _ = self.simulate(premium_budget=.3)
+        _, large, _ = self.simulate(premium_budget=.6)
+        self.assertLess(small.mean(), large.mean())
+
+    def test_roll_count_follows_the_schedule_not_the_path(self):
+        """Roll dates depend on the calendar alone, which is what lets it vectorize."""
+        _, _, slow = self.simulate(premium_budget=.4, maturity_years=2., roll_at_years=1.)
+        _, _, fast = self.simulate(premium_budget=.4, maturity_years=2., roll_at_years=1.5)
+        self.assertGreater(len(fast), len(slow))
+        _, _, scaled = simulate_leaps_portfolio(self.price * 3, self.safe, self.q, self.r,
+                                                self.vol, LeapsRule(premium_budget=.4))
+        self.assertEqual(len(scaled), len(slow))
+
+    def test_scaling_the_index_leaves_returns_unchanged(self):
+        base, _, _ = self.simulate(premium_budget=.4)
+        scaled, _, _ = simulate_leaps_portfolio(self.price * 137.5, self.safe, self.q, self.r,
+                                                self.vol, LeapsRule(premium_budget=.4))
+        np.testing.assert_allclose(base.to_numpy(), scaled.to_numpy(), rtol=1e-10)
+
+    def test_mismatched_calendars_are_rejected(self):
+        with self.assertRaises(ValueError):
+            simulate_leaps_portfolio(self.price, self.safe.iloc[1:], self.q, self.r,
+                                     self.vol, LeapsRule(premium_budget=.4))
+
+    def test_missing_inputs_are_rejected(self):
+        holed = self.vol.copy()
+        holed.iloc[10] = np.nan
+        with self.assertRaises(ValueError):
+            simulate_leaps_portfolio(self.price, self.safe, self.q, self.r, holed,
+                                     LeapsRule(premium_budget=.4))
+
+    def test_invalid_rules_are_rejected(self):
+        for kwargs in (dict(moneyness=0), dict(roll_at_years=3.), dict(target_exposure=99),
+                       dict(premium_budget=0.), dict(premium_budget=1.5), dict(iv_premium=5.)):
+            with self.assertRaises(ValueError):
+                LeapsRule(**kwargs)
+
+
+class BreakEvenTests(unittest.TestCase):
+    def test_solves_a_monotone_decreasing_function(self):
+        premium = break_even_iv_premium(.10, lambda p: .20 - p)
+        self.assertAlmostEqual(premium, .10, 3)
+
+    def test_returns_nan_when_the_rival_is_out_of_reach(self):
+        self.assertTrue(np.isnan(break_even_iv_premium(.50, lambda p: .20 - p)))
+        self.assertTrue(np.isnan(break_even_iv_premium(-.50, lambda p: .20 - p)))
+
+
+if __name__ == '__main__':
+    unittest.main()
