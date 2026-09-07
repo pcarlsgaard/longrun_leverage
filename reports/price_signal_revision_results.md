@@ -54,14 +54,16 @@ in the table above (16.82% legacy versus 19.08% revised).
 
 | Lag | Total log advantage | Top 1 day | Top 5 days | Top 20 days | Largest month | Month share |
 |---|---:|---:|---:|---:|---|---:|
-| LAG1 | 0.8973 | 80.96% | 191.70% | 252.34% | 1987-10 | 76.59% |
-| LAG2 | 1.1906 | 60.80% | 144.25% | 189.53% | 1987-10 | 47.96% |
+| LAG1 | 0.8973 | 80.96% | 191.70% | 449.02% | 1987-10 | 76.59% |
+| LAG2 | 1.1906 | 60.80% | 144.25% | 337.74% | 1987-10 | 47.96% |
 
-These shares are fractions of the entire multi-decade advantage. Read them before
-quoting the CAGR gap: an advantage concentrated in a handful of sessions is a
-statement about those sessions, and its out-of-sample value is far less certain
-than the point estimate suggests. `letf.null_model` tests the same strategies
-against a matched-exposure random-timing null.
+These shares are fractions of the entire multi-decade advantage, ranked by
+contribution to it. Both top-20 shares exceed 100%, which means those twenty
+sessions produced more than the whole gap and the remaining ~10,000 sessions were
+net negative: over almost all of its history this rule did not beat always-on
+leverage. Read that before quoting the CAGR difference. `letf.null_model` tests
+the same strategies against a matched-exposure random-timing null, and none of
+them survives a correction for the size of the grid searched here.
 
 ## Interpretation
 
