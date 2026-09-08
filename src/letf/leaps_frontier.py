@@ -914,9 +914,18 @@ def neighbour_support(classification: pd.DataFrame) -> pd.DataFrame:
     one notch in strike or one notch in budget, within the same family. The
     off-grid conservative anchor has none by construction and is left blank
     rather than scored against cells it does not neighbour.
+
+    Scored against both classifications, for the same reason they both exist. An
+    S&P cell whose whole neighbourhood is dominated by Nasdaq cells scores zero
+    joint support however solid it is among its own kind, and reading that as
+    "no neighbouring support" would be exactly backwards.
     """
-    frontier = dict(zip(classification.strategy, classification.classification != 'dominated'))
-    counts, supported = {}, {}
+    verdicts = {'neighbour_support': 'classification',
+                'family_neighbour_support': 'family_classification'}
+    frontier = {label: dict(zip(classification.strategy,
+                                classification[column] != 'dominated'))
+                for label, column in verdicts.items()}
+    counts, supported = {}, {label: {} for label in verdicts}
     for name, (moneyness, budget) in STRUCTURES.items():
         prefix = 'SPX' if UNDERLYING[name] == EQUITY else 'NDX'
         strikes = SP_MONEYNESS if prefix == 'SPX' else NDX_MONEYNESS
@@ -929,11 +938,13 @@ def neighbour_support(classification: pd.DataFrame) -> pd.DataFrame:
         names = [f'{prefix}_{round(m * 100)}_{round(b * 100)}' for m, b in cells]
         names = [n for n in names if n in STRUCTURES]
         counts[name] = len(names)
-        supported[name] = sum(frontier[n] for n in names)
+        for label in verdicts:
+            supported[label][name] = sum(frontier[label][n] for n in names)
     out = classification.copy()
     out['lattice_neighbours'] = out.strategy.map(counts)
-    out['neighbours_on_frontier'] = out.strategy.map(supported)
-    out['neighbour_support'] = out.neighbours_on_frontier / out.lattice_neighbours
+    for label in verdicts:
+        out[label.replace('_support', 's_on_frontier')] = out.strategy.map(supported[label])
+        out[label] = out.strategy.map(supported[label]) / out.lattice_neighbours
     return out
 
 
@@ -1028,10 +1039,12 @@ def _scatter(ax, frame, x, y, annotate=True):
                        edgecolors='none' if verdict == 'dominated' else 'k',
                        linewidths=.6, label=f'{family.split()[0]} {verdict}', **style)
     if annotate:
-        named = frame[frame.classification != 'dominated']
-        for _, row in named.iterrows():
+        # Sorted and alternated, because at this density neighbouring frontier
+        # points sit close enough for their labels to overprint each other.
+        named = frame[frame.classification != 'dominated'].sort_values(x)
+        for position, (_, row) in enumerate(named.iterrows()):
             ax.annotate(row.strategy, (row[x], row[y]), textcoords='offset points',
-                        xytext=(6, -3), fontsize=6.5)
+                        xytext=(6, -9 if position % 2 else 4), fontsize=6.5)
     for axis in (ax.xaxis, ax.yaxis):
         axis.set_major_formatter(PercentFormatter(1))
 
@@ -1689,6 +1702,7 @@ def report(reports: Path, inputs, historical, check, primary, sensitivities,
     class_columns = ['strategy', 'family', 'premium_budget', 'moneyness',
                      'classification', 'family_classification', 'sensitivities_held',
                      'family_sensitivities_held', 'neighbour_support',
+                     'family_neighbour_support',
                      'median_cagr', 'p5_cagr', 'median_max_drawdown',
                      'prob_drawdown_worse_than_60', 'mean_delta_exposure',
                      'dominated_by', 'dominated_by_same_family',
@@ -1857,8 +1871,12 @@ gap is exactly what the Nasdaq comparison is about.
 
 `neighbour_support` is the fraction of a cell's own lattice neighbours — one
 notch in strike or budget — that are themselves non-dominated. A single efficient
-cell surrounded by dominated ones is a numerical winner, not a regime. The
-off-grid anchor {ANCHOR[0]} has no lattice neighbours and is left blank.
+cell surrounded by dominated ones is a numerical winner, not a regime. It is
+scored against both classifications for the same reason both exist: an S&P cell
+whose neighbourhood is dominated by *Nasdaq* cells scores zero joint support
+however solid it is among its own kind, so `family_neighbour_support` is the
+column to read when the index is already chosen. The off-grid anchor {ANCHOR[0]}
+has no lattice neighbours and is left blank in both.
 
 {markdown_table(classification[class_columns], class_columns, _formats(classification, class_columns))}
 

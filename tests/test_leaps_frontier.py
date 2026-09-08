@@ -319,7 +319,8 @@ class FrontierTests(unittest.TestCase):
 class NeighbourTests(unittest.TestCase):
     def setUp(self):
         self.classification = pd.DataFrame(
-            [dict(strategy=name, classification='robust frontier') for name in STRUCTURES])
+            [dict(strategy=name, classification='robust frontier',
+                  family_classification='robust frontier') for name in STRUCTURES])
 
     def test_an_interior_cell_has_four_neighbours_and_a_corner_two(self):
         out = neighbour_support(self.classification).set_index('strategy')
@@ -334,6 +335,17 @@ class NeighbourTests(unittest.TestCase):
     def test_support_is_one_when_the_whole_lattice_is_efficient(self):
         out = neighbour_support(self.classification)
         self.assertTrue((out.neighbour_support.dropna() == 1).all())
+        self.assertTrue((out.family_neighbour_support.dropna() == 1).all())
+
+    def test_the_two_supports_are_scored_against_their_own_classifications(self):
+        """An S&P cell beaten only by Nasdaq cells keeps its family support."""
+        frame = self.classification.copy()
+        beaten = frame.strategy.str.startswith('SPX')
+        frame.loc[beaten, 'classification'] = 'dominated'
+        out = neighbour_support(frame).set_index('strategy')
+        self.assertEqual(out.loc['SPX_90_40', 'neighbour_support'], 0.)
+        self.assertEqual(out.loc['SPX_90_40', 'family_neighbour_support'], 1.)
+        self.assertEqual(out.loc['NDX_85_30', 'neighbour_support'], 1.)
 
 
 class ResolutionTests(unittest.TestCase):
