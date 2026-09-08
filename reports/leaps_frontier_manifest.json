@@ -1,0 +1,294 @@
+{
+  "window": [
+    "1986-09-29",
+    "2026-09-02"
+  ],
+  "observations": 10059,
+  "sp500_structures": {
+    "SPX_80_25": [
+      0.8,
+      0.25
+    ],
+    "SPX_85_30": [
+      0.85,
+      0.3
+    ],
+    "SPX_85_35": [
+      0.85,
+      0.35
+    ],
+    "SPX_85_40": [
+      0.85,
+      0.4
+    ],
+    "SPX_85_45": [
+      0.85,
+      0.45
+    ],
+    "SPX_85_50": [
+      0.85,
+      0.5
+    ],
+    "SPX_90_30": [
+      0.9,
+      0.3
+    ],
+    "SPX_90_35": [
+      0.9,
+      0.35
+    ],
+    "SPX_90_40": [
+      0.9,
+      0.4
+    ],
+    "SPX_90_45": [
+      0.9,
+      0.45
+    ],
+    "SPX_90_50": [
+      0.9,
+      0.5
+    ],
+    "SPX_95_30": [
+      0.95,
+      0.3
+    ],
+    "SPX_95_35": [
+      0.95,
+      0.35
+    ],
+    "SPX_95_40": [
+      0.95,
+      0.4
+    ],
+    "SPX_95_45": [
+      0.95,
+      0.45
+    ],
+    "SPX_95_50": [
+      0.95,
+      0.5
+    ]
+  },
+  "nasdaq_structures": {
+    "NDX_80_20": [
+      0.8,
+      0.2
+    ],
+    "NDX_80_25": [
+      0.8,
+      0.25
+    ],
+    "NDX_80_30": [
+      0.8,
+      0.3
+    ],
+    "NDX_80_35": [
+      0.8,
+      0.35
+    ],
+    "NDX_80_40": [
+      0.8,
+      0.4
+    ],
+    "NDX_80_45": [
+      0.8,
+      0.45
+    ],
+    "NDX_80_50": [
+      0.8,
+      0.5
+    ],
+    "NDX_85_20": [
+      0.85,
+      0.2
+    ],
+    "NDX_85_25": [
+      0.85,
+      0.25
+    ],
+    "NDX_85_30": [
+      0.85,
+      0.3
+    ],
+    "NDX_85_35": [
+      0.85,
+      0.35
+    ],
+    "NDX_85_40": [
+      0.85,
+      0.4
+    ],
+    "NDX_85_45": [
+      0.85,
+      0.45
+    ],
+    "NDX_85_50": [
+      0.85,
+      0.5
+    ],
+    "NDX_90_20": [
+      0.9,
+      0.2
+    ],
+    "NDX_90_25": [
+      0.9,
+      0.25
+    ],
+    "NDX_90_30": [
+      0.9,
+      0.3
+    ],
+    "NDX_90_35": [
+      0.9,
+      0.35
+    ],
+    "NDX_90_40": [
+      0.9,
+      0.4
+    ],
+    "NDX_90_45": [
+      0.9,
+      0.45
+    ],
+    "NDX_90_50": [
+      0.9,
+      0.5
+    ],
+    "NDX_95_20": [
+      0.95,
+      0.2
+    ],
+    "NDX_95_25": [
+      0.95,
+      0.25
+    ],
+    "NDX_95_30": [
+      0.95,
+      0.3
+    ],
+    "NDX_95_35": [
+      0.95,
+      0.35
+    ],
+    "NDX_95_40": [
+      0.95,
+      0.4
+    ],
+    "NDX_95_45": [
+      0.95,
+      0.45
+    ],
+    "NDX_95_50": [
+      0.95,
+      0.5
+    ]
+  },
+  "conservative_anchor": "SPX_80_25",
+  "lattice_is_prespecified": true,
+  "committed_cells_rechecked": {
+    "SPX_80_25": "LEAPS_80_25_TREASURY",
+    "SPX_85_30": "LEAPS_85_30_TREASURY",
+    "SPX_95_50": "LEAPS_95_50_TREASURY",
+    "NDX_80_20": "NDX_LEAPS_80_20_TREASURY",
+    "NDX_80_25": "NDX_LEAPS_80_25_TREASURY",
+    "NDX_85_25": "NDX_LEAPS_85_25_TREASURY",
+    "NDX_85_30": "NDX_LEAPS_85_30_TREASURY"
+  },
+  "committed_source": "nasdaq_leaps_historical.csv",
+  "roll": "12m",
+  "maturity_years": 2.0,
+  "iv_premium": 0.03,
+  "iv_premium_arms": [
+    0.0,
+    0.03,
+    0.06
+  ],
+  "option_spread_bps": 100.0,
+  "treasury_leverage_arms": [
+    1.0,
+    1.25
+  ],
+  "roll_arms": [
+    "9m",
+    "12m",
+    "18m"
+  ],
+  "block_arms": [
+    21,
+    63,
+    126
+  ],
+  "seed": 20260907,
+  "primary_block_days": 63,
+  "primary_paths": 15000,
+  "horizons": [
+    10,
+    20,
+    30
+  ],
+  "frontier_horizon": 30,
+  "sensitivity_paths": {
+    "iv_premium": 3000,
+    "block_21": 3000,
+    "block_126": 3000,
+    "block_63_matched": 3000,
+    "treasury_leverage": 3000,
+    "roll_interval": 2000
+  },
+  "warmup_sessions": 504,
+  "tolerances": {
+    "cagr": 0.0025,
+    "max_drawdown": 0.02,
+    "drawdown_probability": 0.02,
+    "robust_holds_required": 5,
+    "sensitivities_tested": 7
+  },
+  "resampled_columns": [
+    "price_return",
+    "equity_total",
+    "treasury",
+    "cash",
+    "upro",
+    "tmf",
+    "dividend_yield",
+    "bond_financing",
+    "nasdaq_price_return",
+    "nasdaq_total_return",
+    "nasdaq_dividend_yield"
+  ],
+  "nasdaq_proxy_through": "1999-03-04",
+  "nasdaq_proxy_note": "Nasdaq-100 total returns are grossed up from price with an assumed zero dividend yield through that date; every thirty-year window opens inside that era, so the post-splice twenty-year column is reported beside it",
+  "option_prices": "modelled with Black-Scholes on an assumed implied volatility; this repository holds no long-dated option price history, no skew surface and no bid/ask record for either index",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "pandas": "3.0.5",
+  "scipy": "1.17.1",
+  "matplotlib": "3.11.1",
+  "source_hashes": {
+    "src/letf/analysis.py": "e92b85319efd94dcb4c7862ed80b01cdad6243d1b0a53758e3d1030d0afe21de",
+    "src/letf/analysis_report.py": "d68c6b1f9e00a0b841cbf6cd35fd7287ee216adc48715a763ac10e9498ced75d",
+    "src/letf/cohorts.py": "40e0130a8fb174c9afb3216c17cf3d3da9a900cd3de8dbd2ef1a4778284d1c1c",
+    "src/letf/data.py": "163c7c05fe1cc637d069fd80236691f53fa17d9d6494039f113bda92f25d142e",
+    "src/letf/diagnostics.py": "28f71f304c692e103a79b8fcfc3dec04c50c9e8f8652b9a5d6e6e9bd683db0d6",
+    "src/letf/falsification.py": "af5722b9b1a5785d4ae0e4583243c5beeaa58172525d1101af5fa6e44915ebb7",
+    "src/letf/falsification_report.py": "f633da59a65f31d1bebaef8482666efc3a3155c0a1c49a073ca8bba0936d43fb",
+    "src/letf/hedge_alternatives.py": "4c3516cb4fc33637f39f4515a4f6f76ae1a128fa85b4dc61adc5bd7c20339b12",
+    "src/letf/leaps_frontier.py": "b0eba23ea9ac345f52956980fbf5335563f2bbbc78a37fddabff4ce2ff997c9e",
+    "src/letf/leaps_robustness.py": "40c44bedf99f91ced2b90b676e4a3832f4e1db1fb5ca93b11c58395ace49d8b3",
+    "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
+    "src/letf/nasdaq_leaps.py": "67deba3a0edf4c06a49e221dad7d34d1462df0648b815fb1e554cef05bd0a8a0",
+    "src/letf/options.py": "8e1be005f6359bdd56785d828928f69194611b8f764eff075cf31aead1e86c2b",
+    "src/letf/pipeline.py": "7d60efd68b7e7400a2b0258c59655174e4faaf6c13a99a73343cb9f9eed1dd00",
+    "src/letf/provenance.py": "9c7eba5487fdb5c77187c09aab600db46b190dc9f1d36d43b616233c6c7103d2",
+    "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
+    "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe",
+    "src/letf/treasury_leverage.py": "2438412a43b8cb98dac753545c64c59c97ecf7bbe8c9a901e8730eef52a6f3ab"
+  },
+  "outputs_sha256": {
+    "leaps_frontier_historical.csv": "c4bb791fe4cb15bc4c396f0e18e379c4fe398793d42602c2bc21eda2b3b0cb00",
+    "leaps_frontier_monte_carlo.csv": "6ff2f41635f1d7c968ba05deb897c4de7fffed401e967c22651950125f8b0291",
+    "leaps_frontier_sensitivities.csv": "a37bf74a3069e50bb074b502e4a6495862e75ed8d74e127931e044a9e2139131",
+    "leaps_frontier_classification.csv": "07ee550d32c46b14198e674553afc453a4190082a0ad4ce0005b3e94683e6455"
+  }
+}

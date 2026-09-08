@@ -79,7 +79,7 @@
     "src/letf/falsification.py": "af5722b9b1a5785d4ae0e4583243c5beeaa58172525d1101af5fa6e44915ebb7",
     "src/letf/falsification_report.py": "f633da59a65f31d1bebaef8482666efc3a3155c0a1c49a073ca8bba0936d43fb",
     "src/letf/hedge_alternatives.py": "4c3516cb4fc33637f39f4515a4f6f76ae1a128fa85b4dc61adc5bd7c20339b12",
-    "src/letf/leaps_robustness.py": "3b751dd9afdd2ff36ecd8db693f6a449b7610ae87bdcb5d307d43a18dc996d84",
+    "src/letf/leaps_robustness.py": "40c44bedf99f91ced2b90b676e4a3832f4e1db1fb5ca93b11c58395ace49d8b3",
     "src/letf/model.py": "7c11b4ce5e655332e5148ca266b59c182b250015a5e75f99c6848d7c2a9356af",
     "src/letf/nasdaq_leaps.py": "67deba3a0edf4c06a49e221dad7d34d1462df0648b815fb1e554cef05bd0a8a0",
     "src/letf/options.py": "8e1be005f6359bdd56785d828928f69194611b8f764eff075cf31aead1e86c2b",
