@@ -189,7 +189,8 @@ def held_contract(schedule, spot: np.ndarray, days: np.ndarray):
     return strike, expiry
 
 
-def greeks(market, schedule) -> dict:
+def greeks(spot: pd.Series, dividend: pd.Series, riskfree: pd.Series, vol: pd.Series,
+           schedule) -> dict:
     """Theta and vega of the position actually held, per dollar of NAV.
 
     Both are finite differences of the pricer the simulation uses. `theta` is the
@@ -202,10 +203,15 @@ def greeks(market, schedule) -> dict:
     contract count: the position is `weight * NAV / value` contracts, so
     `weight * greek / value` is the portfolio's exposure per dollar of NAV
     whatever the position size.
+
+    The four market series are passed directly rather than looked up by
+    underlying, so a study comparing contracts on more than one index calls this
+    with either.
     """
-    spot, dividend, riskfree, vol = (series.to_numpy() for series in market[NASDAQ])
-    closes = market[NASDAQ][0].index
+    closes = spot.index
     days = (closes - closes[0]).days.to_numpy().astype(float)
+    spot, dividend, riskfree, vol = (series.to_numpy() for series in
+                                     (spot, dividend, riskfree, vol))
     strike, expiry = held_contract(schedule, spot, days)
     live = np.isfinite(strike)
     remaining = np.maximum((expiry[live] - days[live]) / YEAR, 0.)
@@ -263,7 +269,7 @@ def historical_row(inputs, market, variant: Variant) -> dict:
     years = (returns.index[-1] - returns.index[0]).days / 365.25
     wealth = nav_path(returns, inputs.calendar)
     ten, twenty, thirty = (cohort_cagrs(wealth, horizon) for horizon in (10, 20, 30))
-    measured = greeks(market, roll_schedule(closes, variant.rule))
+    measured = greeks(*market[NASDAQ], roll_schedule(closes, variant.rule))
     weights = path.option_weights[measured['live']]
     row = dict(
         variant=variant.name, structure=variant.structure, family=variant.family,
