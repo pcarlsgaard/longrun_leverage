@@ -1214,9 +1214,6 @@ def main():
     run(args.root, args.workers, args.paths, args.sensitivity_paths)
 
 
-if __name__ == '__main__':
-    main()
-
 
 # ----------------------------------------------------------------------------
 # Report
@@ -1933,3 +1930,7 @@ so no amount of resampling can test it, and it is the single assumption the
 cross-underlying result rests on.
 """
     (reports / 'leaps_frontier_results.md').write_text(text)
+
+
+if __name__ == '__main__':
+    main()

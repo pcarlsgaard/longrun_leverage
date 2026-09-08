@@ -1,3 +1,4 @@
+import ast
 import re
 import tempfile
 import unittest
@@ -756,3 +757,54 @@ class FamilyFrontierTests(unittest.TestCase):
         alone = frontier_flags(frame, [bad]).set_index('strategy')
         self.assertFalse(bool(joint.loc[bad, 'on_frontier']))
         self.assertTrue(bool(alone.loc[bad, 'on_frontier']))
+
+
+class EntryPointTests(unittest.TestCase):
+    """Running the module is not the same as importing it.
+
+    Every test above imports `letf.leaps_frontier`, which defines the whole
+    module before anything runs. `python -m letf.leaps_frontier` executes it top
+    to bottom, so a `__main__` guard placed before a function the driver calls
+    raises `NameError` at the last step of a half-hour run and no import-based
+    test can see it.
+    """
+
+    SOURCE = Path(__file__).resolve().parents[1] / 'src/letf/leaps_frontier.py'
+
+    def guard_index(self, tree):
+        for index, node in enumerate(tree.body):
+            if (isinstance(node, ast.If) and isinstance(node.test, ast.Compare)
+                    and getattr(node.test.left, 'id', None) == '__name__'):
+                return index
+        self.fail('the module has no __main__ guard')
+
+    def test_every_definition_precedes_the_main_guard(self):
+        tree = ast.parse(self.SOURCE.read_text())
+        guard = self.guard_index(tree)
+        late = [node.name for node in tree.body[guard:]
+                if isinstance(node, (ast.FunctionDef, ast.ClassDef))]
+        self.assertEqual(late, [])
+
+    def test_the_guard_is_the_last_statement(self):
+        tree = ast.parse(self.SOURCE.read_text())
+        self.assertEqual(self.guard_index(tree), len(tree.body) - 1)
+
+    def test_the_driver_only_calls_names_defined_above_the_guard(self):
+        """The specific failure: `run` calling `report`, defined after `main()` ran."""
+        tree = ast.parse(self.SOURCE.read_text())
+        guard = self.guard_index(tree)
+        defined = {node.name for node in tree.body[:guard]
+                   if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        driver = [node for node in tree.body[:guard]
+                  if isinstance(node, ast.FunctionDef) and node.name in ('run', 'main')]
+        self.assertEqual(len(driver), 2)
+        for node in driver:
+            for call in ast.walk(node):
+                if isinstance(call, ast.Call) and isinstance(call.func, ast.Name):
+                    if call.func.id.islower() and call.func.id in TOP_LEVEL_NAMES:
+                        self.assertIn(call.func.id, defined, call.func.id)
+
+
+TOP_LEVEL_NAMES = {node.name for node in
+                   ast.parse(EntryPointTests.SOURCE.read_text()).body
+                   if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
