@@ -56,6 +56,7 @@ with a compressed initial data snapshot in `data/snapshots/`.
 | `reports/lflr_reproduction{,_decomposition,_transitions}.csv` | The reproducibility ladder, its decomposition, and every dated crossover |
 | `reports/nasdaq_leaps_{historical,breakeven,monte_carlo,comparison}.csv` | Nasdaq against S&P LEAPS, with break-even volatility premiums |
 | `reports/leaps_frontier_{historical,monte_carlo,sensitivities,classification}.csv` | The 44-cell S&P and Nasdaq LEAPS lattice, its bootstrap distributions, seven sensitivities and the robust Pareto classification |
+| `reports/xnd_short_maturity_{historical,monte_carlo,diagnostics,comparison}.csv` | The XND-length Nasdaq structures against their two-year controls, the five implementation channels, and the equivalence verdicts |
 
 Suffixes distinguish `BASE` (unfitted 50 bp spread), `TRAINED` (one spread fitted
 through 2018), `SPREAD_0BP/50BP/100BP` (funding sensitivity), `NAV` and `MARKET`
@@ -508,6 +509,50 @@ it is still efficient after the assumptions that produced it are moved.
 PYTHONPATH=src python -m letf.leaps_frontier                 # ~26 min on four cores
 PYTHONPATH=src python -m letf.leaps_frontier --paths 1000 \
     --sensitivity-paths 500                                  # a quicker look
+```
+
+## Can the XND contracts that exist implement any of this?
+
+[`letf.xnd_short_maturity`](reports/xnd_short_maturity_results.md) asks the
+implementation question the Nasdaq work leaves open. Every result above buys
+roughly two-year calls; XND expirations reach only to about December 2027, so
+the longest contract actually available is nearer fifteen months. The 80/25 and
+85/30 structures are run at fifteen months on 6-, 9- and 12-month rolls against
+their two-year controls, with a 2.25-year bridge that prices the length of a QQQ
+contract and nothing else about it.
+
+* **Shortening the contract does not cost return — it adds it**, between 0.33
+  and 1.09 points of median CAGR. That is not a free lunch: a shorter call is
+  cheaper, so a fixed premium budget buys more of it. Mean delta exposure runs
+  0.83 at fifteen months against 0.74 at twenty-four and 0.71 at twenty-seven.
+  **The fifteen-month version is a levered-up portfolio, not a degraded one.**
+* **So it is not implementation-equivalent, and none of it fails by earning
+  less.** Five of the six short specifications breach the prespecified tolerances
+  on drawdown probability or the fifth percentile; only 80/25 on a six-month roll
+  stays inside, and only as "acceptable but different". An investor holding the
+  validated budgets on XND would have to cut them to get back to the validated
+  portfolio.
+* **The maturity axis runs opposite to the usual intuition.** The 2.25-year
+  bridge earns *less* than the two-year control and draws down less, so there is
+  no QQQ length advantage to weigh against XND's cash settlement — the available
+  lengths are points on one exposure-for-budget trade. What is left is what this
+  module does not model: American exercise, early assignment, ETF tracking,
+  spreads and tax.
+* **The nine-month roll is the one to avoid**, and not for its nominal maturity:
+  the listed calendar cannot hit fifteen months while keeping six in hand, so it
+  buys anything from twelve to eighteen. That drift, not the maturity, is what
+  costs it 11.5-11.8 points more than its control across 2000-2002.
+* Theta and vega are central differences of the same pricer the simulation uses,
+  pinned against the closed form. Decay is a drag on average but not on every
+  session: a deep in-the-money European call gains value as expiry nears whenever
+  the dividend forgone outweighs the interest on the strike not yet paid, which
+  is most of the zero-rate era.
+* The three-point volatility premium is **not** re-estimated for a shorter
+  contract, and a fifteen-month option sits on a different part of a term
+  structure this repository does not observe.
+
+```bash
+PYTHONPATH=src python -m letf.xnd_short_maturity   # ~4 min on four cores
 ```
 
 This is the most expensive module here by a wide margin: the primary run is

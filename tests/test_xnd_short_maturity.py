@@ -165,26 +165,73 @@ class GreekTests(unittest.TestCase):
             self.assertAlmostEqual(strike[start],
                                    variant.rule.moneyness * self.spot[start])
 
-    def test_the_finite_difference_vega_matches_the_closed_form(self):
-        """Pinned against Black-Scholes rather than trusted as a numerical recipe."""
-        rng = np.random.default_rng(11)
-        spot = rng.uniform(50, 5000, 400)
-        strike = spot * rng.uniform(.6, 1.3, 400)
-        rate, dividend = rng.uniform(0, .08, 400), rng.uniform(0, .04, 400)
-        vol, years = rng.uniform(.08, .9, 400), rng.uniform(.05, 3., 400)
-        up = black_scholes_call(spot, strike, rate, dividend, vol + VEGA_STEP, years)
-        down = black_scholes_call(spot, strike, rate, dividend, vol - VEGA_STEP, years)
-        numeric = (up - down) / (2 * VEGA_STEP)
+    @staticmethod
+    def sample(count=20000, seed=11):
+        rng = np.random.default_rng(seed)
+        spot = rng.uniform(50, 5000, count)
+        return dict(spot=spot, strike=spot * rng.uniform(.6, 1.3, count),
+                    rate=rng.uniform(0, .08, count),
+                    dividend=rng.uniform(0, .04, count),
+                    vol=rng.uniform(.08, .9, count),
+                    years=rng.uniform(.05, 3., count))
+
+    @staticmethod
+    def numeric_vega(step, spot, strike, rate, dividend, vol, years):
+        up = black_scholes_call(spot, strike, rate, dividend, vol + step, years)
+        down = black_scholes_call(spot, strike, rate, dividend, vol - step, years)
+        return (up - down) / (2 * step)
+
+    @staticmethod
+    def closed_vega(spot, strike, rate, dividend, vol, years):
         d1 = ((np.log(spot / strike) + (rate - dividend + vol ** 2 / 2) * years)
               / (vol * np.sqrt(years)))
-        closed = spot * np.exp(-dividend * years) * norm.pdf(d1) * np.sqrt(years)
-        np.testing.assert_allclose(numeric, closed, rtol=1e-6, atol=1e-8)
+        return spot * np.exp(-dividend * years) * norm.pdf(d1) * np.sqrt(years)
 
-    def test_time_decays_value_and_volatility_adds_it(self):
+    def worst_error(self, step, args):
+        closed = self.closed_vega(**args)
+        live = closed > 1e-6
+        numeric = self.numeric_vega(step, **args)
+        return float(np.abs(numeric[live] / closed[live] - 1).max())
+
+    def test_the_finite_difference_vega_matches_the_closed_form(self):
+        """Pinned against Black-Scholes rather than trusted as a numerical recipe.
+
+        The tolerance is what a central difference actually delivers, not what
+        one might hope for: the worst relative error sits on points where vega is
+        a rounding error in absolute terms, and no step size removes it.
+        """
+        args = self.sample()
+        np.testing.assert_allclose(self.numeric_vega(VEGA_STEP, **args),
+                                   self.closed_vega(**args), rtol=5e-3, atol=1e-6)
+        self.assertLess(self.worst_error(VEGA_STEP, args), 5e-3)
+
+    def test_the_step_is_the_one_that_minimises_the_error(self):
+        """Smaller is not better: below this, cancellation beats truncation."""
+        args = self.sample()
+        best = self.worst_error(VEGA_STEP, args)
+        for step in (VEGA_STEP / 100, VEGA_STEP / 10, VEGA_STEP * 10):
+            self.assertLess(best, self.worst_error(step, args), step)
+
+    def test_volatility_always_adds_value(self):
         for name, variant in VARIANTS.items():
             measured = greeks(self.market, roll_schedule(self.closes, variant.rule))
-            self.assertTrue((measured['theta_per_value'] <= 1e-12).all(), name)
             self.assertTrue((measured['vega_per_value'] >= -1e-12).all(), name)
+
+    def test_decay_is_a_drag_on_average_but_not_on_every_session(self):
+        """A deep in-the-money European call can gain value as expiry nears.
+
+        When the dividend yield forgone outweighs the interest earned on the
+        strike not yet paid — which is the whole zero-rate era for an 0.80-strike
+        call on an index yielding 0.7% — time passing *helps*. Asserting decay
+        session by session would be asserting something false about the model,
+        so the drag is asserted where it is real: on the average.
+        """
+        for name, variant in VARIANTS.items():
+            measured = greeks(self.market, roll_schedule(self.closes, variant.rule))
+            self.assertLess(measured['theta_per_value'].mean(), 0, name)
+        deep = greeks(self.market, roll_schedule(
+            self.closes, VARIANTS['NDX_80_25_24M_ROLL12M'].rule))
+        self.assertTrue((deep['theta_per_value'] > 0).any())
 
     def test_a_shorter_contract_decays_faster_and_carries_less_vega(self):
         for structure in STRUCTURES:

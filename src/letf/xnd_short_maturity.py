@@ -288,7 +288,7 @@ def historical_row(inputs, market, variant: Variant) -> dict:
         mean_entry_years=float(rolls.entry_years.mean()),
         mean_exit_years=float(closed.exit_years.mean()),
         mean_held_years=float(closed.held_years.mean()),
-        mean_premium_fraction_of_nav=float((rolls.premium / rolls.wealth).mean()),
+        mean_premium_fraction_of_nav=float((1 - rolls.safe_weight).mean()),
         mean_exit_premium_ratio=float(closed.exit_premium_ratio.mean()),
         # Annualized, and signed as a drag: the fraction of NAV the position
         # loses per year to the passage of time alone.
@@ -778,10 +778,30 @@ def _narrative(historical, monte, compared, diagnostics) -> dict:
             verdicts={verdicts[n] for n in names})
     bust = {n: float(hist.loc[n, '2000_2002_bust'] - hist.loc[CONTROL_OF[n], '2000_2002_bust'])
             for n in short.index}
+    # Mean delta against contract length. A shorter call costs less, so a fixed
+    # premium budget buys more of it; whether that is what happens is the
+    # question the whole report turns on, so it is measured here rather than
+    # argued from the returns.
+    # Averaged across the rolls at each length, because the claim is about the
+    # contract's maturity and the roll interval is a second dial that Q3 covers
+    # separately. Ordering the raw variants would credit the maturity for a
+    # spread the roll produced.
+    ladder = {}
+    for structure in STRUCTURES:
+        lengths = {}
+        for name, variant in VARIANTS.items():
+            if variant.structure == structure:
+                lengths.setdefault(variant.maturity_years, []).append(
+                    float(thirty.loc[name, 'mean_delta_exposure']))
+        ladder[structure] = [(months, float(np.mean(deltas)))
+                             for months, deltas in sorted(lengths.items())]
+    monotone = all([d for _, d in entries] == sorted([d for _, d in entries],
+                                                     reverse=True)
+                   for entries in ladder.values())
     return dict(
         hist=hist, thirty=thirty, twenty=twenty, ten=ten, channels=channels,
         short=short, bridge=bridge, verdicts=verdicts, worst=worst, best=best,
-        by_roll=by_roll, bust=bust,
+        by_roll=by_roll, bust=bust, ladder=ladder, monotone=monotone,
         equivalent=[n for n in short.index
                     if verdicts[n] == 'practically equivalent'],
         acceptable=[n for n in short.index
@@ -850,43 +870,67 @@ def _answers(v) -> str:
               for n in short.index}
     lines.append(
         '**1. How much return is lost by shortening initial maturity from ~2 years to '
-        '~15 months?** Between '
-        f'{min(losses.values()):.2%} and {max(losses.values()):.2%} of median CAGR, '
-        'read as the worse of the twenty- and thirty-year horizons: '
-        + phrase([f'{n.replace("NDX_", "")} gives up {losses[n]:.2%}'
-                  for n in short.index])
-        + '. On the realized path the same shortening costs '
+        '~15 months?** '
+        + ('Nothing, on these assumptions. ' if max(losses.values()) <= 0 else
+           f'Between {max(min(losses.values()), 0):.2%} and {max(losses.values()):.2%} '
+           'of median CAGR. ')
+        + 'Read as the worse of the twenty- and thirty-year horizons: '
+        + phrase([f'{n.replace("NDX_", "")} '
+                  + ('gives up ' if losses[n] > 0 else 'gains ')
+                  + f'{abs(losses[n]):.2%}' for n in short.index])
+        + '. On the realized path it is worth '
         + phrase([f'{short.loc[n, "historical_cagr_difference"]:+.2%}'
-                  for n in short.index]) + '.')
+                  for n in short.index])
+        + ' against the same controls. The shorter contract is cheaper, so a fixed '
+          'premium budget buys more of it: this is a more aggressive portfolio, not a '
+          'degraded one, and every answer below follows from that.')
 
     example = v['worst']
     channel = channels[example]
     lines.append(
-        '**2. Which channel explains the difference?** Not the trading. For '
-        f'{example.replace("NDX_", "")}, the worst case, the measured option-spread '
-        f'drag rises by {channel["spread_bps"]:,.0f}bp against a {channel["lost_bps"]:,.0f}bp '
-        f'loss — {channel["spread_share"]:.0%} of it — even though turnover runs at '
-        f'{channel["turnover"]:.2f}x the control. '
-        f'Theta accounts for {channel["theta_bps"]:,.0f}bp, {channel["theta_share"]:.0%}. '
-        'What is left is exposure: the median delta '
+        '**2. Which channel explains the difference?** '
+        + (f'{example.replace("NDX_", "")} is the worst of the short variants and it '
+           f'gives up {channel["lost_bps"]:,.0f}bp of median CAGR. The measured '
+           f'option-spread drag rises by {channel["spread_bps"]:,.0f}bp, '
+           f'{channel["spread_share"]:.0%} of it, even though turnover runs at '
+           f'{channel["turnover"]:.2f}x the control, so the trading is not the story. '
+           f'Theta accounts for {channel["theta_bps"]:,.0f}bp, '
+           f'{channel["theta_share"]:.0%}. '
+           if channel['lost_bps'] > 0 else
+           'There is no loss to apportion. Even the worst of the short variants, '
+           f'{example.replace("NDX_", "")}, is {-channel["lost_bps"]:,.0f}bp of median '
+           'CAGR **ahead** of its two-year control, so the question is which channels '
+           'moved rather than which explains a shortfall. The measured option-spread '
+           f'drag rises {channel["spread_bps"]:,.0f}bp on {channel["turnover"]:.2f}x the '
+           f'turnover, and theta costs a further {channel["theta_bps"]:,.0f}bp; both are '
+           'real and both are outweighed. ')
+        + 'What moves in the other direction is exposure: the median delta '
         + ('falls' if channel['delta_median'] < 0 else 'rises')
         + f' by {abs(channel["delta_median"]):.2f} and the worst delta after a 30% loss '
         + ('falls' if channel['delta_after_loss'] < 0 else 'rises')
         + f' by {abs(channel["delta_after_loss"]):.2f}. '
         'These are the sizes of the channels in comparable units, not an additive '
-        'decomposition — theta is offset by drift and exposure and turnover interact.')
+        'decomposition — theta is offset by drift, and exposure and turnover interact.')
 
     rolls = v['by_roll']
     lines.append(
-        '**3. Does 6m, 9m or 12m rolling materially change the result?** '
-        + phrase([f'{months}-month rolling gives up {-info["median"]:.2%} at '
-                  f'{info["turnover"]:.2f}x the control\'s turnover'
+        '**3. Does 6m, 9m or 12m rolling materially change the result?** Yes, '
+        'monotonically, and in the direction the mechanism predicts: a longer roll on a '
+        'fifteen-month contract holds it closer to expiry, where its delta is higher '
+        'still. '
+        + phrase([f'{months}-month rolling '
+                  + ('gains ' if info['median'] > 0 else 'gives up ')
+                  + f'{abs(info["median"]):.2%} at {info["turnover"]:.2f}x the '
+                    "control's turnover"
                   for months, info in rolls.items()])
         + '. '
-        + ('The three are not interchangeable: '
-           if len({tuple(sorted(i['verdicts'])) for i in rolls.values()}) > 1 else
-           'All three land on the same verdict: ')
-        + phrase([f'{months}m is {phrase(sorted(info["verdicts"]))}'
+        + phrase([f'{months}m is '
+                  + (f'{sorted(set(v["verdicts"][n] for n in info["variants"]))[0]} in '
+                     'both structures'
+                     if len({v['verdicts'][n] for n in info['variants']}) == 1 else
+                     phrase(sorted(f'{v["verdicts"][n]} for '
+                                   f'{n.split("_15M")[0].replace("NDX_", "")}'
+                                   for n in info['variants'])))
                   for months, info in rolls.items()])
         + '. The twelve-month roll leaves about '
         f'{hist.loc[v["worst"] if rolls[12]["variants"][0] not in hist.index else rolls[12]["variants"][0], "mean_exit_years"]:.2f} '
@@ -898,15 +942,21 @@ def _answers(v) -> str:
         '**4. Does the shorter maturity materially worsen the dot-com episode?** '
         + phrase([f'{n.replace("NDX_", "")} {gap:+.1%}' for n, gap in bust.items()])
         + ' against its own control over 2000-2002. '
-        + (f'{len(worse)} of the {len(bust)} short variants lose more; '
-           if worse else 'None of the short variants loses more; ')
-        + ('the shorter contract has less time value to give up in the fall, which is '
-           'the one place a shorter maturity helps.'
-           if len(worse) < len(bust) else
-           'the shorter contract is rebought more often into a falling market, which is '
-           'where a fixed budget hurts most.'))
+        + (f'{len(worse)} of the {len(bust)} short variants lose more, and it is the '
+           f'same {phrase([n.replace("NDX_", "") for n in worse])} in both structures. '
+           f'That is the roll whose realized maturity drifts furthest — the listed '
+           f'calendar cannot hit fifteen months while keeping six in hand, so it buys '
+           f'anything from twelve to eighteen — and the drift, not the nominal '
+           f'maturity, is what the episode punishes. The rest come through it slightly '
+           f'better, having less time value to give up in the fall.'
+           if worse else
+           'None of the short variants loses more: they have less time value to give up '
+           'in the fall, which is the one place a shorter maturity helps.'))
 
     recovery = {n: channels[n]['recovery'] for n in short.index}
+    bootstrap = {n: float(v['thirty'].loc[n, 'underexposed_recovery']
+                          - v['thirty'].loc[CONTROL_OF[n], 'underexposed_recovery'])
+                 for n in short.index}
     lines.append(
         '**5. Does it worsen recovery after major drawdowns?** The mean delta over the '
         'twelve months after the worst trough, as a fraction of the variant\'s own mean '
@@ -919,9 +969,15 @@ def _answers(v) -> str:
            'None recovers with less exposure than the two-year rule does. ')
         + 'In the bootstrap the probability of being materially underexposed through a '
           'recovery moves '
-        + phrase([f'{n.replace("NDX_", "")} '
-                  f'{v["thirty"].loc[n, "underexposed_recovery"] - v["thirty"].loc[CONTROL_OF[n], "underexposed_recovery"]:+.1%}'
-                  for n in short.index]) + ' at thirty years.')
+        + phrase([f'{n.replace("NDX_", "")} {bootstrap[n]:+.1%}' for n in short.index])
+        + ' at thirty years. '
+        + ('No: across three thousand resampled paths every short variant is *less* '
+           'likely to be caught underexposed than its two-year control, which is the '
+           'same higher delta showing up again. The realized path disagrees for '
+           'some variants, but it is one path.'
+           if all(gap <= 0 for gap in bootstrap.values()) else
+           'The two measures disagree in sign for some variants, so this channel is not '
+           'settled by either on its own.'))
 
     p5 = {n: -min(short.loc[n, 'cagr_p5_20y'], short.loc[n, 'cagr_p5_30y'])
           for n in short.index}
@@ -932,44 +988,64 @@ def _answers(v) -> str:
         + phrase([f'{n.replace("NDX_", "")} {gap:.2%}' for n, gap in p5.items()])
         + f' against a {P5_TOLERANCE:.2%} tolerance. '
         + (f'{phrase([n.replace("NDX_", "") for n in breached])} '
-           f'{"breach" if len(breached) > 1 else "breaches"} it.'
+           f'{"breach" if len(breached) > 1 else "breaches"} it'
+           + (f', though only just — {phrase([f"{p5[n]:.3%}" for n in breached])} '
+              f'against {P5_TOLERANCE:.3%} — so the verdict it drives rests on a margin '
+              'far finer than the option-price assumption underneath it.'
+              if all(p5[n] < P5_TOLERANCE * 1.1 for n in breached) else '.')
            if breached else 'None breaches it.'))
 
+    passes = v['equivalent'] + v['acceptable']
+    ladder = v['ladder'][list(STRUCTURES)[0]]
     lines.append(
         '**7. Is current XND availability a credible implementation of the validated '
-        'Nasdaq LEAPS architecture?** '
-        + (f'{phrase([n.replace("NDX_", "") for n in v["equivalent"]])} '
-           f'{"are" if len(v["equivalent"]) > 1 else "is"} practically equivalent; '
-           if v['equivalent'] else '')
-        + (f'{phrase([n.replace("NDX_", "") for n in v["acceptable"]])} '
-           f'{"are" if len(v["acceptable"]) > 1 else "is"} acceptable but different; '
-           if v['acceptable'] else '')
-        + (f'{phrase([n.replace("NDX_", "") for n in v["broken"]])} '
-           f'{"are" if len(v["broken"]) > 1 else "is"} not implementation-equivalent'
-           if v['broken'] else 'nothing falls outside the tolerances')
-        + '. '
-        + ('So yes, at the longer rolls — the contract set can carry the strategy, '
-           'provided the roll is not pushed toward expiry.'
-           if v['equivalent'] or v['acceptable'] else
-           'So no: at every roll interval tested the fifteen-month contract changes the '
-           'economics beyond the prespecified tolerances.'))
+        'Nasdaq LEAPS architecture?** It can hold the architecture but not the '
+        'calibration. '
+        + (f'{len(passes)} of the {len(short)} fifteen-month specifications '
+           f'{"stays" if len(passes) == 1 else "stay"} inside the tolerances — '
+           + (f'{phrase([n.replace("NDX_", "") for n in v["equivalent"]])} practically '
+              'equivalent' if v['equivalent'] else '')
+           + ('; ' if v['equivalent'] and v['acceptable'] else '')
+           + (f'{phrase([n.replace("NDX_", "") for n in v["acceptable"]])} acceptable '
+              'but different' if v['acceptable'] else '')
+           + '. ' if passes else
+           f'None of the {len(short)} fifteen-month specifications stays inside the '
+           'tolerances. ')
+        + (f'The other {len(v["broken"])} fail, and none of them fails by earning less. '
+           if v['broken'] else '')
+        + 'They fail because the risk changed: mean delta exposure runs '
+        + phrase([f'{delta:.2f} at {round(months * 12)} months'
+                  for months, delta in ladder])
+        + f' for {SHORT[list(STRUCTURES)[0]]}, '
+        + ('rising monotonically as the contract shortens in both structures'
+           if v['monotone'] else 'and does not order cleanly with maturity')
+        + '. A shorter call is cheaper, so the same premium budget buys more of it. '
+          'An investor holding the validated budgets on XND would not be running the '
+          'validated portfolio; they would be running a more aggressive one, and would '
+          'have to cut the budget to get back to it.')
 
     bridge = v['bridge']
     gaps = {n: min(bridge.loc[n, 'cagr_p50_20y'], bridge.loc[n, 'cagr_p50_30y'])
             for n in bridge.index}
+    tails = {n: bridge.loc[n, 'prob_drawdown_worse_than_60_30y'] for n in bridge.index}
     lines.append(
         '**8. Is the maturity advantage of QQQ likely more important than XND\'s '
-        'cleaner cash-settled European structure?** A 2.25-year contract on the same '
-        'economics is worth '
+        'cleaner cash-settled European structure?** The maturity axis does not run the '
+        'way the question assumes. A 2.25-year contract on the same economics is worth '
         + phrase([f'{gap:+.2%}' for gap in gaps.values()])
-        + ' of median CAGR against the two-year control, against the '
-        + f'{min(losses.values()):.2%} to {max(losses.values()):.2%} the fifteen-month '
-        'contract gives up. '
-        + ('The maturity axis is therefore worth more than the structural one over the '
-           'range tested — but this bridge models the *length* of a QQQ contract and '
-           'nothing else about it: no American exercise, no early assignment, no ETF '
-           'tracking error, no difference in spread or tax treatment. It bounds the '
-           'question rather than answering it.'))
+        + ' of median CAGR against the two-year control and '
+        + phrase([f'{tail:+.1%}' for tail in tails.values()])
+        + ' of P(DD>60%): a longer contract costs more per unit of delta, so it buys '
+          '**less** exposure on the same budget, and it gives up return to reduce risk. '
+        + (f'Both bridge rows are {phrase(sorted(set(v["bridge_verdicts"].values())))}. '
+           if v['bridge_verdicts'] else '')
+        + 'So there is no maturity advantage to weigh against XND\'s settlement — the '
+          'lengths available simply sit at different points on the same '
+          'exposure-for-budget trade, and any of them can be moved onto any other by '
+          'changing the premium budget. What that leaves is the part this module does '
+          'not model: American exercise, early assignment, ETF tracking, spreads and '
+          'tax treatment. The bridge prices the length of a QQQ contract and nothing '
+          'else about it, so it bounds the question rather than answering it.')
     return '\n\n'.join(lines)
 
 
