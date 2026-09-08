@@ -137,7 +137,7 @@
     "src/letf/provenance.py": "9c7eba5487fdb5c77187c09aab600db46b190dc9f1d36d43b616233c6c7103d2",
     "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
     "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe",
-    "src/letf/xnd_short_maturity.py": "81eb89c83c456fc7673de0c34051e5eccfb6eb7eecbc87af55b965e1c7e72a40"
+    "src/letf/xnd_short_maturity.py": "4215edc5252a611bb59501bac9ecef2959bbefe10d247adb229bb90ac4c61bff"
   },
   "outputs_sha256": {
     "xnd_short_maturity_historical.csv": "11dd10274a30346b1a47626b3fe8b6ad416176e64af67d332ecd6c80d34c8776",
