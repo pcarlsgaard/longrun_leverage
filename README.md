@@ -55,6 +55,7 @@ with a compressed initial data snapshot in `data/snapshots/`.
 | `reports/leaps_treasury_leverage_{monte_carlo,stress,frontier}.csv` | Bootstrap distributions, the prolonged rates shock, and the compact frontier |
 | `reports/lflr_reproduction{,_decomposition,_transitions}.csv` | The reproducibility ladder, its decomposition, and every dated crossover |
 | `reports/nasdaq_leaps_{historical,breakeven,monte_carlo,comparison}.csv` | Nasdaq against S&P LEAPS, with break-even volatility premiums |
+| `reports/leaps_frontier_{historical,monte_carlo,sensitivities,classification}.csv` | The 44-cell S&P and Nasdaq LEAPS lattice, its bootstrap distributions, seven sensitivities and the robust Pareto classification |
 
 Suffixes distinguish `BASE` (unfitted 50 bp spread), `TRAINED` (one spread fitted
 through 2018), `SPREAD_0BP/50BP/100BP` (funding sensitivity), `NAV` and `MARKET`

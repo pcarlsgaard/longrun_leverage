@@ -408,7 +408,7 @@ def rebalanced(legs: np.ndarray, starts: np.ndarray, weights: np.ndarray) -> np.
 
 
 def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True,
-               price_col=None, yield_col=None):
+               price_col=None, yield_col=None, iv_premium=IV_PREMIUM):
     """Rebuild every model input inside one resampled path, by the same rules.
 
     Volatility, the risk-free level and the trend signal are *recomputed* from
@@ -416,11 +416,16 @@ def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True,
     point: an implied volatility carried over from the realized calendar would
     know about crashes the simulated path never had, and a trend signal
     resampled as a state would be right about a future it cannot see.
+
+    `iv_premium` defaults to the repository's baseline loading, so every caller
+    that does not name it gets the number it always got. A study that varies the
+    option-price assumption passes its own, which is the one input this
+    repository cannot check and therefore the one worth being able to move.
     """
     price_return = np.r_[0., sample[:, PRICE if price_col is None else price_col]]
     price = pd.Series(np.cumprod(1 + price_return), index=calendar, name='price')
     returns = pd.Series(price_return, index=calendar)
-    vol = implied_volatility_proxy(returns, IV_PREMIUM, MATURITY_YEARS)
+    vol = implied_volatility_proxy(returns, iv_premium, MATURITY_YEARS)
     # The entry close carries no resampled return, so it is given a zero accrual
     # for the rolling cash-rate estimate. That lands 504 sessions before any
     # position is opened and is discarded with the rest of the warm-up.
