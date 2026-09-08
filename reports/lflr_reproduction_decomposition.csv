@@ -1,0 +1,18 @@
+step,assumption,from_cagr,to_cagr,effect,view,base,changed_to,base_cagr,variant_cagr,total_gap,sum_of_single_changes,unexplained_by_interaction
+A0_paper_like -> A1_tradable_execution,execution timing,0.2413321658,0.2327936242,-0.008538541615,sequential,,,,,,,
+A1_tradable_execution -> A2_price_signal,signal source,0.2327936242,0.257559017,0.02476539284,sequential,,,,,,,
+A2_price_signal -> A4_preferred,switching cost,0.257559017,0.2374923039,-0.02006671314,sequential,,,,,,,
+A4_preferred -> A5_synthetic,actual versus synthetic UPRO,0.2374923039,0.2380576383,0.0005653344146,sequential,,,,,,,
+A2_price_signal -> A3_risk_off_index,risk-off asset (branch),0.257559017,0.3114550333,0.05389601625,sequential,,,,,,,
+,signal,,,-0.02067280176,from preferred toward the paper,A4_preferred,total_return,0.2374923039,0.2168195021,,,
+,lag,,,-0.05867452841,from preferred toward the paper,A4_preferred,1,0.2374923039,0.1788177755,,,
+,cost_bps,,,0.02006671314,from preferred toward the paper,A4_preferred,0,0.2374923039,0.257559017,,,
+,risk_off,,,0.05303600421,"from preferred, internal sensitivity",A4_preferred,SP500_1X,0.2374923039,0.2905283081,,,
+,levered,,,0.0005653344146,"from preferred, internal sensitivity",A4_preferred,UPRO_BASE,0.2374923039,0.2380576383,,,
+,signal,,,-0.04339912143,from the paper toward preferred,A0_paper_like,price,0.2413321658,0.1979330444,,,
+,lag,,,-0.008538541615,from the paper toward preferred,A0_paper_like,2,0.2413321658,0.2327936242,,,
+,cost_bps,,,-0.01608476158,from the paper toward preferred,A0_paper_like,25,0.2413321658,0.2252474042,,,
+,risk_off,,,0.05819976104,"from the paper, internal sensitivity",A0_paper_like,SP500_1X,0.2413321658,0.2995319268,,,
+,levered,,,-0.000271841907,"from the paper, internal sensitivity",A0_paper_like,UPRO_BASE,0.2413321658,0.2410603239,,,
+,,,,,interaction check,,,,,-0.003839861915,-0.06802242463,0.06418256272
+,,,,,interaction check,,,,,-0.003839861915,0.05928061703,-0.06312047894
