@@ -57,6 +57,7 @@ with a compressed initial data snapshot in `data/snapshots/`.
 | `reports/nasdaq_leaps_{historical,breakeven,monte_carlo,comparison}.csv` | Nasdaq against S&P LEAPS, with break-even volatility premiums |
 | `reports/leaps_frontier_{historical,monte_carlo,sensitivities,classification}.csv` | The 44-cell S&P and Nasdaq LEAPS lattice, its bootstrap distributions, seven sensitivities and the robust Pareto classification |
 | `reports/xnd_short_maturity_{historical,monte_carlo,diagnostics,comparison}.csv` | The XND-length Nasdaq structures against their two-year controls, the five implementation channels, and the equivalence verdicts |
+| `reports/leaps_duration_roll_{historical,monte_carlo,exposure,frontier}.csv` | 141 contract-length and roll variants, what each buys per dollar of premium, and the four frontiers at fixed budget and at matched delta |
 
 Suffixes distinguish `BASE` (unfitted 50 bp spread), `TRAINED` (one spread fitted
 through 2018), `SPREAD_0BP/50BP/100BP` (funding sensitivity), `NAV` and `MARKET`
@@ -553,6 +554,47 @@ contract and nothing else about it.
 
 ```bash
 PYTHONPATH=src python -m letf.xnd_short_maturity   # ~4 min on four cores
+```
+
+## Is a contract duration efficient, or does it just buy more delta?
+
+[`letf.leaps_duration`](reports/leaps_duration_roll_results.md) closes the loop the
+two modules above open. The frontier work left maturity at the inherited two-year
+convention; the XND work found that a shorter contract is cheaper, so a fixed
+premium budget buys more of it. **A duration that earns more at the same budget has
+therefore not been shown to be better, only larger** — so every comparison here runs
+twice, once at a fixed budget and once at a budget interpolated to match the
+canonical rule's mean delta.
+
+141 variants: 45 Nasdaq cells across the three regimes XND can approximately supply,
+96 S&P cells across eight maturity/roll regimes spanning 15 to 30 months.
+
+* **Delta bought per dollar of premium falls monotonically with length** — 1.13x at
+  15 months, 1.07x at 18, 0.99x at 24, 0.93x at 30, against the canonical rule. That
+  single fact explains most of what a fixed-budget duration comparison shows.
+* **No regime is robustly efficient against the canonical rule at matched delta.**
+  Six of the nine are dominated, two unresolved, one conditionally efficient. The
+  two-year annual roll was inherited rather than chosen, and nothing tested
+  displaces it.
+* **The short-maturity advantage does not survive matching the exposure.** Nasdaq
+  15m/12m goes from +1.04% of median CAGR at a fixed budget to +0.03% at matched
+  delta; the S&P equivalent from +0.85% to +0.08%. Not one short regime keeps a gap
+  larger than its own resolution bar.
+* **Rolling every six months is never paid for**: every six-month regime is
+  dominated, at roughly double the turnover.
+* **Holding a short contract to ~3 months remaining is the worst tail behaviour in
+  the lattice** — P(DD>60%) of 32.5% on the Nasdaq against 12.2% canonical — and it
+  is also the regime that buys the most delta, which is the same fact twice.
+* **About 85-88% of the canonical budget on 15-month XND reproduces canonical
+  24-month exposure**, so roughly 25.5-26.5% in place of a 30% budget.
+* **The honest headline is question ten.** One volatility point is worth 0.52-0.79%
+  of CAGR here, and every regime's matched-delta gap is smaller than its own
+  volatility point. These rankings are ordered, but ordered inside the error bar of
+  a term structure this repository does not observe — and the loading is not retuned
+  by maturity, which is the assumption a duration comparison leans on hardest.
+
+```bash
+PYTHONPATH=src python -m letf.leaps_duration   # ~14 min on four cores
 ```
 
 This is the most expensive module here by a wide margin: the primary run is
