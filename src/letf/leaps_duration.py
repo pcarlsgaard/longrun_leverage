@@ -1187,10 +1187,18 @@ def _answers(v) -> str:
            f'{ndx_six["median_matched_cagr_gap"]:+.2%}, and the tails are '
            f'{v["tails"][("NDX", "15m/12m")]:.1%} against '
            f'{v["tails"][("NDX", "15m/6m")]:.1%} on P(DD>60%). '
-           + ('The six-month roll is the better of the two once size is held still.'
-              if ndx_six['median_matched_cagr_gap'] >= ndx_twelve['median_matched_cagr_gap']
-              or v['tails'][('NDX', '15m/6m')] < v['tails'][('NDX', '15m/12m')]
-              else 'The twelve-month roll holds up even at matched delta.')
+           + ('So it is a trade, not a ranking: the six-month roll gives up '
+              f'{abs(ndx_twelve["median_matched_cagr_gap"] - ndx_six["median_matched_cagr_gap"]):.2%} '
+              'of matched-delta CAGR to remove '
+              f'{v["tails"][("NDX", "15m/12m")] - v["tails"][("NDX", "15m/6m")]:.1%} of '
+              'tail probability, and it doubles the turnover to do it. '
+              if ndx_six['median_matched_cagr_gap'] < ndx_twelve['median_matched_cagr_gap']
+              and v['tails'][('NDX', '15m/6m')] < v['tails'][('NDX', '15m/12m')]
+              else 'The six-month roll is the better of the two once size is held '
+                   'still. ')
+           + f'Both are {phrase(sorted({ndx_six["classification"], ndx_twelve["classification"]}))} '
+             'against the canonical rule, so the choice between them is a choice '
+             'between two regimes that rule already beats.'
            if ndx_six is not None and ndx_twelve is not None else
            'Both Nasdaq regimes are absent from the classification.'))
 
@@ -1238,7 +1246,12 @@ def _answers(v) -> str:
                    f'{row.median_max_drawdown:.1%} median drawdown, P(DD>60%) '
                    f'{row.prob_drawdown_worse_than_60:.1%})' for _, row in menu.iterrows()])
            + '. Each is non-dominated on the fixed-budget frontier and separated from '
-             'the one below it by more than the tolerances.'
+             'the one below it by more than the tolerances. **Read the duration labels '
+             'with care.** This is the frontier an investor actually faces at a fixed '
+             'budget, so it is the right menu to choose from — but a short duration '
+             'appearing on it is not evidence that the duration is efficient, only '
+             'that the exposure it happens to buy sits at a point worth occupying. '
+             'The same point is reachable at another length by moving the budget.'
            if len(menu) else
            'None: the fixed-budget frontier holds no set of cells separated by more '
            'than the tolerances.'))
@@ -1278,6 +1291,7 @@ def _formats(frame, columns=None) -> dict:
               'min_delta', 'recovery_delta', 'canonical_mean_delta',
               'fixed_budget_mean_delta', 'survives_delta_matching',
               'option_turnover_per_year_difference', 'vega_per_nav_difference',
+              'median_delta_ratio',
               'mean_entry_years_difference', 'recovery_exposure_ratio_difference')
     out = {}
     for column in (list(frame.columns) if columns is None else columns):
