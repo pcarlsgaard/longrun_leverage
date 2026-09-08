@@ -22,6 +22,7 @@ longrun-leverage-regimes = "letf.regime_signals:main"
 longrun-leverage-null-model = "letf.null_model:main"
 longrun-leverage-hedges = "letf.hedge_alternatives:main"
 longrun-leverage-leaps-robustness = "letf.leaps_robustness:main"
+longrun-leverage-treasury-leverage = "letf.treasury_leverage:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

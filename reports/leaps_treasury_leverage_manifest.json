@@ -4,44 +4,53 @@
     "2026-09-02"
   ],
   "observations": 10059,
-  "roll_intervals": {
-    "6m": 0.5,
-    "9m": 0.75,
-    "12m": 1.0,
-    "13m": 1.0833333333333333,
-    "18m": 1.5
-  },
   "structures": {
-    "LEAPS_80_25_TREASURY": [
+    "LEAPS_80_25": [
       0.8,
       0.25
     ],
-    "LEAPS_85_30_TREASURY": [
+    "LEAPS_85_30": [
       0.85,
       0.3
     ],
-    "LEAPS_95_50_TREASURY": [
+    "LEAPS_95_50": [
       0.95,
       0.5
     ]
   },
-  "benchmark_interval": "12m",
-  "monte_carlo_intervals": [
-    "9m",
-    "12m",
-    "18m"
+  "treasury_leverages": [
+    1.0,
+    1.25,
+    1.5,
+    2.0
   ],
-  "maturity_years": 2.0,
-  "expiry_months": [
+  "stress_leverage": 3.0,
+  "roll": "12m",
+  "roll_years": 1.0,
+  "sleeve": "constant-leverage long Treasuries, restored daily, borrowing only the exposure above 1x at funding recovered from the 3x fund identity; TMF is carried separately as the daily-reset product comparison",
+  "joint_loss_windows": {
+    "3m": [
+      63,
+      0.1
+    ],
+    "12m": [
+      252,
+      0.2
+    ]
+  },
+  "shock": "the realized 2022 rates episode replayed end to end, whole daily rows, after a warm-up of the two real years preceding it",
+  "shock_repeats": [
     1,
-    6,
-    12
+    2,
+    3
   ],
-  "iv_premium": 0.03,
-  "option_spread_bps": 100.0,
-  "sma_days": 200,
-  "lag": 2,
-  "switch_cost_bps": 25,
+  "shock_offsets": [
+    0,
+    21,
+    42,
+    63,
+    84
+  ],
   "seed": 20260907,
   "block_lengths": [
     21,
@@ -56,7 +65,6 @@
     30
   ],
   "warmup_sessions": 504,
-  "bootstrap": "joint moving-block resample of whole daily rows, drawn with replacement from every possible start; last block truncated",
   "resampled_columns": [
     "price_return",
     "equity_total",
@@ -64,14 +72,10 @@
     "cash",
     "upro",
     "tmf",
-    "dividend_yield"
+    "dividend_yield",
+    "treasury_financing"
   ],
-  "rebuilt_inside_each_path": [
-    "implied volatility proxy",
-    "trailing risk-free rate",
-    "SMA position"
-  ],
-  "option_prices": "modelled with Black-Scholes on an assumed implied volatility; this repository holds no option price history, and resampling a modelled price does not measure it",
+  "option_prices": "modelled with Black-Scholes on an assumed implied volatility; this repository holds no option price history",
   "python": "3.11.15",
   "numpy": "2.4.6",
   "pandas": "3.0.5",
@@ -92,18 +96,13 @@
     "src/letf/pipeline.py": "7d60efd68b7e7400a2b0258c59655174e4faaf6c13a99a73343cb9f9eed1dd00",
     "src/letf/provenance.py": "9c7eba5487fdb5c77187c09aab600db46b190dc9f1d36d43b616233c6c7103d2",
     "src/letf/signals.py": "61940a361b384fe648400f04119452410f9e971db2278a3727329c47035103d1",
-    "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe"
+    "src/letf/strategy.py": "bbb7f0c5fb6894ab4ccc6b722e345cb21024a6b1a99c67639e053f0af2bc21fe",
+    "src/letf/treasury_leverage.py": "2438412a43b8cb98dac753545c64c59c97ecf7bbe8c9a901e8730eef52a6f3ab"
   },
   "outputs_sha256": {
-    "leaps_roll_frequency.csv": "37d7702c8621a8e37be765d0deff7812905f1ffdeb8ebef2ba7a8aa5984a5870",
-    "leaps_roll_dispersion.csv": "860c52c8e6de4fd7bead65bb6999fc64c36b91abdfce4ab79a01a95ffaa848cf",
-    "leaps_model_uncertainty.csv": "f8991309cad8c1114b82f3948cf4256c9ef4a3fc9bb52beee2e6403dcc9554c9",
-    "leaps_historical_reference.csv": "834a8988407f486d79c5b4d323f32bf7664a7e0dfbcec68158bdd98172d81e6f",
-    "leaps_monte_carlo_20y.csv": "c4e2202c0a2b3d1f6bb8548fcbfd99a47309e40ca759edf7e96343780ccccef0",
-    "leaps_monte_carlo_30y.csv": "0d25721fae98633fe160539d9d8c0e37fff35224e155606fb9a092cfabb58f1e",
-    "leaps_monte_carlo_percentiles.csv": "53cfa39440da82015251d7fc400f40ab6c9996e9ed88ecb86f3b674c3a6e37ef",
-    "leaps_monte_carlo_drawdowns.csv": "fd74a12dd97fef6cf8f0daab33bf0ff684930211b1d5e0a3adcee0eb7bd3a3c0",
-    "leaps_monte_carlo_ranks.csv": "4b3ff75f377302409331d7c866e5f261dacd26776c881f8b470ee136354c595c",
-    "leaps_monte_carlo_blocks.csv": "785d852bc12e993ef97677140643774e4d5314cd6447869d1a7e9307dddb5ff9"
+    "leaps_treasury_leverage_historical.csv": "299220737ae1b99cbe8d2fc4b4ce6702d94da94a5b433fe527a2e0b5dc857523",
+    "leaps_treasury_leverage_monte_carlo.csv": "679f0d1806ceb7a416a22f9bad1201cb6e17e065d084705e90b03f3136999ab8",
+    "leaps_treasury_leverage_stress.csv": "8e5ee59c1a1d201871882eb0b7843bdfa865dd7d6cf71d318392c706abdab524",
+    "leaps_treasury_leverage_frontier.csv": "7d8e4a07e84edcc9e9356204e5a70cb05d0912c40cbbfb34a3ade0490e2425fc"
   }
 }

@@ -19,3 +19,4 @@ python -m letf.cross_index_signal
 python -m letf.null_model
 python -m letf.hedge_alternatives
 python -m letf.leaps_robustness
+python -m letf.treasury_leverage

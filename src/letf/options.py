@@ -40,7 +40,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import ndtr
 
-__all__ = ['LeapsRule', 'RollSchedule', 'black_scholes_call', 'call_delta',
+__all__ = ['LeapsRule', 'LeapsPath', 'RollSchedule', 'black_scholes_call', 'call_delta',
            'trailing_dividend_yield', 'trailing_riskfree', 'implied_volatility_proxy',
            'listed_expiries', 'choose_expiry', 'roll_schedule', 'leaps_arrays',
            'simulate_leaps_arrays', 'simulate_leaps_portfolio', 'break_even_iv_premium']
@@ -245,6 +245,28 @@ def implied_volatility_proxy(price_returns: pd.Series, iv_premium: float,
     lagged = realized.shift(lag) * np.sqrt(TRADING_DAYS)
     return (lagged + iv_premium).clip(VOL_FLOOR, VOL_CAP).bfill().rename('implied_vol')
 
+@dataclass(frozen=True)
+class LeapsPath:
+    """One simulated rolling-call portfolio, per session.
+
+    `navs` is wealth from 1.0 at the entry close; `exposures` is delta-equivalent
+    equity per dollar of portfolio; `option_weights` is the fraction of wealth in
+    the option leg, so `1 - option_weights` is the safe sleeve's weight.
+
+    `leg_returns` is the option leg's *own* close-to-close return, chained within
+    each holding period. It is not `option_weights * navs` differenced: that
+    ratio crosses a roll, where the position is sold and a differently sized one
+    bought, and would report the re-sizing as a return. This series is what the
+    contract actually did, which is what a question about the two sleeves moving
+    together has to be asked of. The entry close has no prior, so it is 0.
+    """
+    navs: np.ndarray
+    exposures: np.ndarray
+    option_weights: np.ndarray
+    leg_returns: np.ndarray
+    rolls: list
+
+
 @dataclass(frozen=True, eq=False)
 class RollSchedule:
     """When the position is rolled and into which contract, for one calendar.
@@ -314,10 +336,11 @@ def simulate_leaps_arrays(spot, safe_growth, dividend, riskfree, vol, days,
     it. The pandas function is now a validating wrapper around this.
 
     `safe_growth` is the safe sleeve's growth factor per session, with 1.0 in
-    the entry slot so it aligns with `spot`. Returns `(navs, exposures,
-    option_weights, rolls)`; `option_weights` is the fraction of wealth held in
-    the option leg on each close, which the wrapper does not expose but which
-    is what tells you whether a position has decayed to nothing between rolls.
+    the entry slot so it aligns with `spot`. Returns a :class:`LeapsPath`, which
+    carries two series the pandas wrapper does not expose: the option leg's
+    weight in the portfolio, which says whether a position has decayed to
+    nothing between rolls, and the leg's own return, which is what a question
+    about the two sleeves falling together has to be asked of.
     """
     rule = schedule.rule
     n = len(spot)
@@ -356,6 +379,9 @@ def simulate_leaps_arrays(spot, safe_growth, dividend, riskfree, vol, days,
                         vol[flat], remaining)
 
     navs, exposures, weights = np.empty(n), np.empty(n), np.empty(n)
+    # The leg's return is written per holding period, so it never spans a roll.
+    # The entry close has no prior session and keeps its zero.
+    legs = np.zeros(n)
     wealth, rolls = 1., []
     for k, begin in enumerate(starts):
         # The option bought at `begin` is valued through `last`, the session it
@@ -407,6 +433,13 @@ def simulate_leaps_arrays(spot, safe_growth, dividend, riskfree, vol, days,
         navs[begin + 1:last + 1] = held[1:]
         exposures[begin + 1:last + 1] = carried[1:]
         weights[begin + 1:last + 1] = option_weight[1:]
+        # A contract that has underflowed to exactly zero has no return to earn:
+        # the ratio would be 0/0. Leaving it at zero is the honest reading, and
+        # it keeps the series free of the NaN that would silently poison every
+        # rolling window containing it.
+        previous = value[:-1]
+        legs[begin + 1:last + 1] = np.where(
+            previous > 0, value[1:] / np.where(previous > 0, previous, 1.) - 1, 0.)
         if ledger:
             rolls.append(dict(begin=begin, last=last, expiry_day=expiry, capped=capped,
                               strike=strike, entry_years=entry_years,
@@ -424,7 +457,7 @@ def simulate_leaps_arrays(spot, safe_growth, dividend, riskfree, vol, days,
                               exit_premium_ratio=float(value[-1]) / premium,
                               trough_premium_ratio=float(value.min()) / premium))
         wealth = float(contracts * value[-1] * (1 - spread) + bills * carry[-1])
-    return navs, exposures, weights, rolls
+    return LeapsPath(navs, exposures, weights, legs, rolls)
 
 
 def leaps_arrays(price: pd.Series, safe_returns: pd.Series, dividend: pd.Series,
@@ -483,13 +516,12 @@ def simulate_leaps_portfolio(price: pd.Series, safe_returns: pd.Series, dividend
     elif schedule.rule != rule or schedule.calendar != calendar_fingerprint(closes):
         raise ValueError('Supplied roll schedule was built for a different rule or calendar')
 
-    navs, exposures, _, rolls = simulate_leaps_arrays(
-        spot, safe_growth, q, r, sigma, days, schedule, ledger)
-    nav = pd.Series(navs, index=closes, name='wealth')
-    exposure = pd.Series(exposures, index=closes, name='delta_exposure')
+    path = simulate_leaps_arrays(spot, safe_growth, q, r, sigma, days, schedule, ledger)
+    nav = pd.Series(path.navs, index=closes, name='wealth')
+    exposure = pd.Series(path.exposures, index=closes, name='delta_exposure')
     if not ledger:
         return nav
-    frame = pd.DataFrame(rolls)
+    frame = pd.DataFrame(path.rolls)
     # The core works in positions and day counts; the published ledger is dated.
     frame.insert(0, 'close', closes[frame.pop('begin').to_numpy()])
     frame.insert(1, 'expiry', closes[0] + pd.to_timedelta(frame.pop('expiry_day'), unit='D'))

@@ -156,10 +156,9 @@ def historical_leaps(inputs: Inputs, rule: LeapsRule, safe=TREASURY):
     closes = inputs.spot.index
     arrays = leaps_arrays(inputs.spot, inputs.daily.loc[inputs.ix, safe],
                           inputs.dividend, inputs.riskfree, inputs.vol)
-    navs, exposures, weights, rolls = simulate_leaps_arrays(
-        *arrays, roll_schedule(closes, rule))
-    return (pd.Series(navs, index=closes, name='wealth'), exposures, weights,
-            pd.DataFrame(rolls))
+    path = simulate_leaps_arrays(*arrays, roll_schedule(closes, rule))
+    return (pd.Series(path.navs, index=closes, name='wealth'), path.exposures,
+            path.option_weights, pd.DataFrame(path.rolls))
 
 
 def roll_frequency_row(name, label, interval, inputs, moneyness, budget):
@@ -250,7 +249,7 @@ def model_uncertainty(inputs: Inputs, shift=.01) -> pd.DataFrame:
             arrays = leaps_arrays(inputs.spot, inputs.daily.loc[inputs.ix, TREASURY],
                                   inputs.dividend, inputs.riskfree, vol)
             navs = simulate_leaps_arrays(*arrays, roll_schedule(closes, shifted),
-                                         ledger=False)[0]
+                                         ledger=False).navs
             rates[premium] = cagr(pd.Series(navs, index=closes).pct_change().dropna())
         rows.append(dict(structure=name, volatility_shift=shift,
                          cagr_at_base=rates[IV_PREMIUM],
@@ -400,7 +399,7 @@ def rebalanced(legs: np.ndarray, starts: np.ndarray, weights: np.ndarray) -> np.
     return values / np.r_[1., values[:-1]] - 1
 
 
-def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex):
+def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True):
     """Rebuild every model input inside one resampled path, by the same rules.
 
     Volatility, the risk-free level and the trend signal are *recomputed* from
@@ -418,7 +417,9 @@ def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex):
     # position is opened and is discarded with the rest of the warm-up.
     riskfree = trailing_riskfree(pd.Series(np.r_[0., sample[:, CASH_R]], index=calendar))
     dividend = np.r_[sample[0, YIELD], sample[:, YIELD]]
-    position = level_position(price, calendar, SMA_DAYS, LAG)
+    # Only a caller with a trend rule pays for one; the signal is a third of the
+    # per-path cost and a study without a timing strategy has no use for it.
+    position = level_position(price, calendar, SMA_DAYS, LAG) if signal else None
     return price.to_numpy(), vol.to_numpy(), riskfree.to_numpy(), dividend, position
 
 
@@ -507,11 +508,10 @@ def run_path(sample: np.ndarray, horizon: Horizon, intervals) -> dict:
     q, rate, sigma = dividend[entry:], riskfree[entry:], vol[entry:]
     for name in STRUCTURES:
         for label in intervals:
-            navs, exposures, _, rolls = simulate_leaps_arrays(
-                spot, growth, q, rate, sigma, horizon.days,
-                horizon.schedules[(name, label)])
-            out, drawdown = path_metrics(navs, horizon)
-            leaps_extras(out, drawdown, exposures, rolls)
+            path = simulate_leaps_arrays(spot, growth, q, rate, sigma, horizon.days,
+                                         horizon.schedules[(name, label)])
+            out, drawdown = path_metrics(path.navs, horizon)
+            leaps_extras(out, drawdown, path.exposures, path.rolls)
             results[label_of(name, label)] = out
     return results
 
@@ -522,19 +522,23 @@ def label_of(structure: str, interval: str) -> str:
 
 
 def _run_chunk(args):
-    pool, horizon, intervals, block, seeds = args
+    pool, horizon, spec, block, seeds, runner = args
     needed = len(horizon.calendar) - 1
     rows = []
     for spawned in seeds:
         rng = np.random.default_rng(spawned)
-        rows.append(run_path(pool[block_draw(rng, len(pool), needed, block)],
-                             horizon, intervals))
+        rows.append(runner(pool[block_draw(rng, len(pool), needed, block)], horizon, spec))
     return rows
 
 
-def monte_carlo(pool, horizon: Horizon, intervals, paths: int, block: int, seed: int,
-                workers: int | None = None):
+def monte_carlo(pool, horizon: Horizon, spec, paths: int, block: int, seed: int,
+                workers: int | None = None, runner=None):
     """Resample `paths` times and score every strategy on each.
+
+    `spec` is handed to the runner unchanged — roll intervals for this module's
+    own `run_path`, something else for another study reusing the driver. The
+    row indices a path draws depend on the seed and the block length alone, so
+    two studies sharing a seed see the same simulated worlds.
 
     Each path draws from its own spawned seed rather than from one shared
     stream. That is what makes the result independent of how the work is
@@ -545,6 +549,7 @@ def monte_carlo(pool, horizon: Horizon, intervals, paths: int, block: int, seed:
     from the serial one would invalidate every number in the report.
     """
     seeds = np.random.SeedSequence(seed).spawn(paths)
+    runner = runner or run_path
     workers = max(1, min(workers or (os.cpu_count() or 1), paths))
     if workers == 1:
         chunks = [seeds]
@@ -552,7 +557,7 @@ def monte_carlo(pool, horizon: Horizon, intervals, paths: int, block: int, seed:
         # More chunks than workers so a slow one cannot hold up the tail.
         chunks = [c for c in np.array_split(np.array(seeds, dtype=object), workers * 4)
                   if len(c)]
-    payloads = [(pool, horizon, intervals, block, list(chunk)) for chunk in chunks]
+    payloads = [(pool, horizon, spec, block, list(chunk), runner) for chunk in chunks]
     if workers == 1:
         collected = [_run_chunk(payloads[0])]
     else:
@@ -563,7 +568,11 @@ def monte_carlo(pool, horizon: Horizon, intervals, paths: int, block: int, seed:
     for rows in collected:
         for result in rows:
             if store is None:
-                store = {name: np.empty((paths, len(METRICS))) for name in result}
+                # Width comes from the runner's own record, not from this
+                # module's metric list: another study reusing the driver reports
+                # different columns, and sizing from METRICS would silently
+                # truncate them.
+                store = {name: np.empty((paths, len(row))) for name, row in result.items()}
             for name, row in result.items():
                 store[name][index] = row
             index += 1
@@ -872,12 +881,12 @@ MONTHS = {1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'Jun
           12: 'December'}
 
 
-def _phrase(items, join='and'):
+def phrase(items, join='and'):
     items = [str(i) for i in items]
     return items[0] if len(items) == 1 else f'{", ".join(items[:-1])} {join} {items[-1]}'
 
 
-def _count_phrase(count: int, total: int) -> str:
+def _countphrase(count: int, total: int) -> str:
     """"all three", "two of the three", "none of the three" — never "3 of the three"."""
     words = {0: 'none', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five'}
     if count == total:
@@ -951,9 +960,9 @@ def _narrative(rolls, dispersion, uncertainty, reference, summaries, ranks, bloc
     block_spread = medians.max(axis=1) - medians.min(axis=1)
 
     v = dict(
-        months=_phrase([MONTHS[m] for m in sorted(EXPIRY_MONTHS)]),
-        other_blocks=_phrase([b for b in BLOCK_LENGTHS if b != PRIMARY_BLOCK]),
-        pool=_phrase(POOL_COLUMNS),
+        months=phrase([MONTHS[m] for m in sorted(EXPIRY_MONTHS)]),
+        other_blocks=phrase([b for b in BLOCK_LENGTHS if b != PRIMARY_BLOCK]),
+        pool=phrase(POOL_COLUMNS),
         first=first, mid=mid, top=top,
         held9=f"{by.loc[(first, '9m'), 'mean_held_years'] * 12:.1f}",
         rolls_benchmark=f"{by.loc[(first, BENCHMARK_INTERVAL), 'rolls']:.0f}",
@@ -978,7 +987,7 @@ def _narrative(rolls, dispersion, uncertainty, reference, summaries, ranks, bloc
         floor_direction=('rises' if thirty.loc[label_of(mid, '9m'),
                                                'min_exposure_after_loss_median']
                          > thirty.loc[mid, 'min_exposure_after_loss_median'] else 'falls'),
-        floor_long_phrase=_count_phrase(sum(
+        floor_long_phrase=_countphrase(sum(
             thirty.loc[label_of(name, '18m'), 'min_exposure_after_loss_median']
             < thirty.loc[name, 'min_exposure_after_loss_median'] for name in STRUCTURES),
             len(STRUCTURES)),
@@ -1135,7 +1144,7 @@ Two questions, both attempts to break the earlier result rather than improve it.
 
 1. `letf.hedge_alternatives` buys roughly two-year calls and rolls when about a
    year is left. Nothing there ever varied that. **Part A** moves only the roll
-   interval, across {_phrase(list(ROLL_INTERVALS))}.
+   interval, across {phrase(list(ROLL_INTERVALS))}.
 2. Every number in this repository comes from one realized path. **Part B**
    resamples that path in blocks and asks whether the ranking is a property of
    the strategies or of the sequence.
