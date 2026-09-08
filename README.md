@@ -449,6 +449,72 @@ volatility methodology deliberately not retuned.
 PYTHONPATH=src python -m letf.nasdaq_leaps        # ~1 min on four cores
 ```
 
+## Where is the frontier, and which of it survives being doubted?
+
+[`letf.leaps_frontier`](reports/leaps_frontier_results.md) replaces the
+hand-picked structures above with a prespecified regular lattice — 16 S&P cells
+(three strikes x five premium budgets, plus the `SPX_80_25` anchor) and 28
+Nasdaq cells (four strikes x seven budgets) — and carries every one of them
+through a 15,000-path bootstrap at 10, 20 and 30 years plus seven sensitivities:
+option price at +0/+3/+6 volatility points, block length at 21/63/126, roll at
+9/12/18 months, and a 1.25x Treasury sleeve. A cell is called efficient only if
+it is still efficient after the assumptions that produced it are moved.
+
+* **Two frontiers, because there are two questions.** Drawn over all 44 cells it
+  answers whether the choice of underlying matters; drawn inside a family it
+  answers which structures are efficient once the index is chosen. A cell can be
+  efficient in its family and dominated jointly, and that gap is the Nasdaq
+  result.
+* **On the S&P the strike matters more than the budget, and the strike is 0.85.**
+  All five 0.85 cells are robust within the S&P family across every budget from
+  30% to 50%; every 0.95 cell is dominated and every 0.90 cell except 90/50 is
+  too. 90/40 is a genuine elbow — 19.7 points of tail per CAGR point going in
+  against 27.4 coming out — but it is an elbow on a ladder that is already
+  dominated.
+* **The resolution limit is the option price, not the Monte Carlo.** One
+  volatility point of modelled CAGR runs from 0.28% at NDX_80_20 to 1.39% at
+  SPX_95_50, wider than the 0.25-point comparison tolerance at every cell in the
+  lattice, so every pairwise verdict widens its bar to whichever is larger and
+  differences inside it are reported as economically unresolved.
+* **Nasdaq buys the same growth on less option capital, but not without limit.**
+  NDX_90_30 reaches SPX_90_40 on 30% of capital against 40%, and holds that under
+  every sensitivity; it falls 1.16% short of SPX_90_50 and does not hold against
+  it under block reordering. The dot-com bust is not uniformly kind either — the
+  Nasdaq cell lost more than SPX_90_40 over 2000-2002, and only beat the
+  higher-budget S&P cells.
+* **A dearer option flatters the Nasdaq comparison.** A flat premium is
+  proportionally a smaller loading on a more volatile underlying, so the +6-point
+  arm costs the high-budget S&P cells more than it costs these. That is a
+  property of the imported assumption, not evidence of robustness.
+* **1.25x on the Treasury sleeve reorders nothing** — rank correlation 0.9996 on
+  median CAGR — but moves six cells across the frontier boundary. It relocates
+  the frontier without changing which cells earn more.
+* **The menu the run supports**, each holding at least five of seven
+  sensitivities and separated from its neighbour on at least two frontier axes:
+
+  | regime | cell | budget | median 30y CAGR | p5 | median max DD | P(DD>60%) |
+  |---|---|---:|---:|---:|---:|---:|
+  | conservative growth | `SPX_80_25` | 25% | 12.00% | 6.94% | -36.3% | 0.7% |
+  | balanced growth | `NDX_80_25` | 25% | 13.74% | 7.32% | -41.0% | 3.0% |
+  | enhanced growth | `NDX_85_30` | 30% | 15.37% | 7.46% | -48.1% | 12.7% |
+  | aggressive growth | `NDX_90_35` | 35% | 16.77% | 7.20% | -56.0% | 35.2% |
+  | maximum growth | `NDX_90_40` | 40% | 17.66% | 6.96% | -61.6% | 56.3% |
+
+* The Nasdaq's excess growth over the S&P is an **input** to every resampled
+  path, so no amount of resampling tests it, and pre-1999 Nasdaq history is the
+  same price-only proxy flagged above.
+
+```bash
+PYTHONPATH=src python -m letf.leaps_frontier                 # ~26 min on four cores
+PYTHONPATH=src python -m letf.leaps_frontier --paths 1000 \
+    --sensitivity-paths 500                                  # a quicker look
+```
+
+This is the most expensive module here by a wide margin: the primary run is
+15,000 paths at three horizons and the sensitivities add ~30,000 more
+strategy-paths, so `scripts/check_reproducible.sh` now takes roughly half an
+hour longer than it used to.
+
 ## Reproducing every committed result
 
 ```bash
