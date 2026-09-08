@@ -51,6 +51,8 @@ with a compressed initial data snapshot in `data/snapshots/`.
 | `reports/leaps_roll_frequency.csv` | Every LEAPS structure at every roll interval, with realized maturities and measured cost drag |
 | `reports/leaps_monte_carlo_{20y,30y}.csv` | Bootstrap distribution summaries per horizon |
 | `reports/leaps_monte_carlo_{percentiles,drawdowns,ranks,blocks}.csv` | Percentile tables, drawdown probabilities, rank stability, block-length sensitivity |
+| `reports/leaps_treasury_leverage_historical.csv` | Every structure at every sleeve leverage, with measured financing drag and the joint-loss diagnostic |
+| `reports/leaps_treasury_leverage_{monte_carlo,stress,frontier}.csv` | Bootstrap distributions, the prolonged rates shock, and the compact frontier |
 
 Suffixes distinguish `BASE` (unfitted 50 bp spread), `TRAINED` (one spread fitted
 through 2018), `SPREAD_0BP/50BP/100BP` (funding sensitivity), `NAV` and `MARKET`
@@ -338,6 +340,55 @@ PYTHONPATH=src python -m letf.leaps_robustness            # ~1.5 min on four cor
 PYTHONPATH=src python -m letf.leaps_robustness --paths 500  # a quicker look
 ```
 
+## Can levering the safe sleeve buy return more cheaply than premium budget?
+
+The option family is ordered by premium budget, and budget buys return and
+drawdown together in fixed proportion. Duration is a second dial:
+`letf.hedge_alternatives` found it improved return and several drawdown
+statistics up to a point and made 2022 much worse past it.
+[`letf.treasury_leverage`](reports/leaps_treasury_leverage_results.md) holds the
+option structure fixed and levers the *safe* sleeve instead — 1.0x, 1.25x, 1.5x,
+2.0x, with 3x and TMF as comparison rows rather than specifications — and asks
+whether return bought that way comes with better tails than the same return
+bought with a bigger budget.
+
+The sleeve is constant-leverage long Treasuries, borrowing only the exposure
+above 1x at funding recovered from the repository's own 3x fund. The cost is
+measured, not modelled: each structure is run again on a sleeve of identical
+notional whose borrowing is free.
+
+* **Both dials are priced in the same units.** Points of median drawdown paid
+  per point of median CAGR bought, for a step of sleeve leverage and for a step
+  of premium budget. A sleeve step that costs more than a budget step is not a
+  new frontier, only a worse way along the old one.
+* **The sleeves have to be measured separately.** A levered safe sleeve is a
+  hedge only while it rises when equities fall. The report counts rolling
+  windows in which the option leg and the Treasury sleeve *both* lose heavily —
+  a statistic computed on the portfolio alone cannot distinguish a joint loss
+  from a severe single-sleeve one.
+* **In forty years there is exactly one joint-loss episode.** Every row's worst
+  simultaneous loss is the twelve months ending in November 2022. Whether to
+  lever the sleeve is a question about how often that recurs, which is precisely
+  what a sample containing one instance cannot answer.
+* **So the weight rests on a synthetic shock.** The 2022 episode is replayed end
+  to end, whole daily rows, so stock/bond correlation stays positive far longer
+  than the record allows. Each case is run from several calendar starts, because
+  at one roll a year, where the roll falls relative to the shock is luck rather
+  than leverage.
+* **Modest leverage cannot substitute for budget.** 85/30 with the most sleeve
+  leverage tested still falls well short of 95/50's return and still trails it
+  on most bootstrap paths, while spending part of the tail advantage that was
+  the reason to prefer 85/30.
+* **Constant leverage is not TMF.** At matched 3x notional the fund costs
+  materially more than financing alone, and the two are conceptually different
+  instruments — one defined by the exposure it holds, the other by a daily rule
+  that produces it plus a path dependence.
+
+```bash
+PYTHONPATH=src python -m letf.treasury_leverage             # ~3 min on four cores
+PYTHONPATH=src python -m letf.treasury_leverage --paths 500 # a quicker look
+```
+
 ## Reproducing every committed result
 
 ```bash
@@ -389,6 +440,10 @@ Collected rather than scattered, because they bound every result above:
 - **One rate regime.** The whole window is a secular decline in yields, so the
   leveraged-Treasury leg of any hedged structure is itself a single-regime bet,
   in exactly the way October 1987 is for the trend rule.
+- **One joint-loss episode.** The whole case for a levered Treasury sleeve rests
+  on how often equities and duration fall together. The record contains one such
+  stretch, in 2022, lasting ten months — which is why the synthetic shock that
+  prolongs it carries more weight than any historical column.
 - **The bootstrap is not a forecast, and is not neutral.** It resamples the same
   forty years, so it cannot produce a crash worse than 1987 or a bond regime
   unlike the one observed; it distributes *orderings*, not futures. It also

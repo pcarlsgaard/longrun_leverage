@@ -315,18 +315,18 @@ class RollScheduleTests(unittest.TestCase):
         nav, exposure, _ = simulate_leaps_portfolio(self.price, self.safe, self.q, self.r,
                                                     self.vol, self.rule)
         arrays = leaps_arrays(self.price, self.safe, self.q, self.r, self.vol)
-        navs, exposures, weights, rolls = simulate_leaps_arrays(
-            *arrays, roll_schedule(self.closes, self.rule))
-        np.testing.assert_array_equal(navs, nav.to_numpy())
-        np.testing.assert_array_equal(exposures, exposure.to_numpy())
+        path = simulate_leaps_arrays(*arrays, roll_schedule(self.closes, self.rule))
+        np.testing.assert_array_equal(path.navs, nav.to_numpy())
+        np.testing.assert_array_equal(path.exposures, exposure.to_numpy())
         # Option weight and safe weight are the whole portfolio, by construction.
-        self.assertTrue(np.all((weights > 0) & (weights < 1)))
-        self.assertEqual(len(rolls), len(roll_schedule(self.closes, self.rule).starts))
+        self.assertTrue(np.all((path.option_weights > 0) & (path.option_weights < 1)))
+        self.assertEqual(len(path.rolls),
+                         len(roll_schedule(self.closes, self.rule).starts))
 
     def test_ledger_records_the_premium_that_survived_to_the_sale(self):
-        _, _, _, rolls = simulate_leaps_arrays(
+        rolls = simulate_leaps_arrays(
             *leaps_arrays(self.price, self.safe, self.q, self.r, self.vol),
-            roll_schedule(self.closes, self.rule))
+            roll_schedule(self.closes, self.rule)).rolls
         for entry in rolls:
             self.assertAlmostEqual(entry['exit_premium_ratio'],
                                    entry['exit_value'] / entry['premium'], 12)
