@@ -1,6 +1,9 @@
 name: Build time series
 on:
   workflow_dispatch:
+  schedule:
+    # Nightly, for the full rebuild the fast path leans on.
+    - cron: '17 3 * * *'
   push:
     paths: ['src/**', 'tests/**', 'scripts/**', 'reports/**', 'pyproject.toml', '.github/workflows/build.yml', 'data/snapshots/**']
   pull_request:
@@ -19,9 +22,13 @@ jobs:
       - run: python -m unittest discover -s tests -v
 
   reproduce:
-    # Regenerates every committed result offline and fails if any of them
-    # differs. This is what catches a hand-edited generated report, a committed
-    # result that no script produces, and a silent numeric drift.
+    # Regenerates the committed results whose manifests no longer prove them and
+    # fails if any of them differs. This is what catches a hand-edited generated
+    # report, a committed result that no script produces, and a silent numeric
+    # drift: a hand-edited result fails its manifest's output hash, so it is
+    # rebuilt and compared like any other change. Results nothing has touched are
+    # proven by the manifest the run that made them wrote, rather than rebuilt to
+    # re-derive the same bytes; see scripts/stale_modules.py.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +41,27 @@ jobs:
         if: always()
         with:
           name: longrun-leverage-reports
+          path: reports/
+          retention-days: 90
+
+  reproduce-full:
+    # The same check with every step rebuilt from nothing rather than from the
+    # manifests. This is the run that re-establishes what the fast path leans on,
+    # and it takes about an hour, so it runs nightly and on demand rather than on
+    # every push.
+    if: github.event_name != 'push' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - run: scripts/check_reproducible.sh --full
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: longrun-leverage-reports-full
           path: reports/
           retention-days: 90
 

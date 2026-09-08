@@ -518,9 +518,21 @@ hour longer than it used to.
 ## Reproducing every committed result
 
 ```bash
-scripts/regenerate.sh        # rebuild reports/ from the frozen input bundles
-scripts/check_reproducible.sh  # and assert nothing changed
+scripts/regenerate.sh          # rebuild the results whose manifests no longer prove them
+scripts/regenerate.sh --full   # rebuild everything, about an hour
+scripts/check_reproducible.sh  # regenerate, then assert nothing changed
+scripts/stale_modules.py --why # what would rebuild, and why
 ```
+
+**Only what needs rebuilding is rebuilt.** `scripts/stale_modules.py` asks, per
+step, whether the manifest beside its results still proves them: every source
+file it hashed unchanged *and* the import graph unchanged, every input unchanged,
+and every committed output still hashing to what the manifest recorded. All three
+have to hold, so a hand-edited result fails the last check and is rebuilt and
+compared like any other change — nothing is taken on trust, and "skipped" means
+"already proven by the run that wrote this manifest". Six steps record no source
+hashes and therefore always run. CI does this on every push; a nightly job
+rebuilds everything from nothing, which is what the fast path leans on.
 
 The second script is a CI job. Every committed `.csv` and `.md` under
 `reports/` must be what the code produces: text exactly, numbers within 1e-8

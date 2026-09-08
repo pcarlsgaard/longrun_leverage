@@ -20,10 +20,20 @@
 # repository: a committed result was hand-edited after generation, a result was
 # committed that no script produces, or a code change silently moved the
 # numbers.
+#
+# By default `scripts/regenerate.sh` rebuilds only the steps whose manifests no
+# longer prove their results — same sources, same import graph, same inputs,
+# same committed outputs. Rebuilding everything to re-derive bytes nobody
+# touched costs most of an hour and proves nothing new. A hand-edited result
+# fails the output-hash check and is rebuilt and compared like any other change,
+# so the three failures above are all still caught.
+#
+# Pass --full to rebuild everything from nothing rather than from the manifests.
+# The scheduled CI job does that; pushes and pull requests do not.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-scripts/regenerate.sh
+scripts/regenerate.sh ${1:-}
 
 python scripts/compare_results.py
 
