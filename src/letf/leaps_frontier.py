@@ -1040,27 +1040,119 @@ def _scatter(ax, frame, x, y, annotate=True):
                        linewidths=.6, label=f'{family.split()[0]} {verdict}', **style)
     if annotate:
         # Sorted and alternated, because at this density neighbouring frontier
-        # points sit close enough for their labels to overprint each other.
-        named = frame[frame.classification != 'dominated'].sort_values(x)
+        # points sit close enough for their labels to overprint each other. Only
+        # the robust cells are named: labelling every non-dominated one collides
+        # whatever the offsets.
+        named = frame[frame.classification == 'robust frontier'].sort_values(x)
+        # Three offsets rather than two: adjacent frontier cells can sit close
+        # enough that alternating between a pair still overprints, and a little
+        # margin keeps the rightmost label inside the axes.
+        offsets = ((6, 5), (6, -10), (-6, 9))
         for position, (_, row) in enumerate(named.iterrows()):
+            offset = offsets[position % len(offsets)]
             ax.annotate(row.strategy, (row[x], row[y]), textcoords='offset points',
-                        xytext=(6, -9 if position % 2 else 4), fontsize=6.5)
+                        xytext=offset, fontsize=6.5,
+                        ha='right' if offset[0] < 0 else 'left')
+        ax.margins(x=.12, y=.08)
     for axis in (ax.xaxis, ax.yaxis):
         axis.set_major_formatter(PercentFormatter(1))
 
 
-def growth_figure(path: Path, frame: pd.DataFrame, indices: pd.DataFrame):
-    fig, axes = plt.subplots(1, 2, figsize=(13.6, 5.6), constrained_layout=True)
-    ax = axes[0]
-    _scatter(ax, frame, 'median_max_drawdown', 'median_cagr')
+# The horizons the frontier is drawn at. Thirty years is where a candidate is
+# classified; the shorter two are drawn with the same colours so a reader can see
+# where a cell judged robust over thirty years actually sits over ten.
+PANEL_HORIZONS = (10, 20, 30)
+
+
+def _at_horizon(classification: pd.DataFrame, monte: pd.DataFrame, years: int):
+    """The classification joined to one horizon's distribution, and the index rows."""
+    piece = monte[monte.horizon_years == years].set_index('strategy')
+    frame = classification.copy()
+    for column, source in (('median_cagr', 'cagr_p50'), ('p5_cagr', 'cagr_p5'),
+                           ('median_max_drawdown', 'max_drawdown_median'),
+                           ('prob_drawdown_worse_than_60', 'prob_drawdown_worse_than_60'),
+                           ('mean_delta_exposure', 'mean_delta_exposure')):
+        frame[column] = frame.strategy.map(piece[source])
+    return frame, piece
+
+
+def _trace(ax, frame, x, y, order='median_max_drawdown'):
+    """Join the non-dominated cells of each family so the frontier reads as a curve.
+
+    The line is drawn through the cells that are non-dominated *at thirty years*,
+    which is where the classification is defined. On the shorter panels it is
+    therefore the same set of cells traced at a different horizon, not a frontier
+    recomputed there — which is the comparison worth seeing.
+
+    Always ordered by risk rather than by whatever is on the x-axis. The fifth
+    percentile is not monotone in risk, so sorting by it would connect the same
+    cells in a different sequence and draw a zigzag that means nothing; ordering
+    both rows the same way makes the second one show where that one sequence
+    travels in a different space.
+    """
+    for family in MARKER:
+        piece = frame[(frame.family == family)
+                      & (frame.classification != 'dominated')].sort_values(order)
+        if len(piece) > 1:
+            ax.plot(piece[x], piece[y], '-', color='0.35', lw=.8, alpha=.55, zorder=1)
+
+
+def _index_markers(ax, index_rows, x, y):
     for name, marker in zip(INDEX_ROWS, ('*', 'D')):
-        row = indices.loc[name]
-        ax.scatter(row.max_drawdown_median, row.cagr_p50, marker=marker, s=90,
-                   color='k', zorder=5, label=SHORT[name])
-    ax.set_xlabel('median max drawdown')
-    ax.set_ylabel(f'median {FRONTIER_HORIZON}-year CAGR')
+        row = index_rows.loc[name]
+        ax.scatter(row[x], row[y], marker=marker, s=80, color='k', zorder=5,
+                   label=SHORT[name])
+
+
+def growth_figure(path: Path, classification: pd.DataFrame, monte: pd.DataFrame):
+    """The growth frontier at each horizon, over the median against the bad case.
+
+    Colours are the thirty-year classification throughout, so the ten- and
+    twenty-year panels answer a question the thirty-year one cannot: whether the
+    cells that survive the sensitivities over thirty years are also where a
+    holder would want to be over the horizon they actually have.
+    """
+    fig, axes = plt.subplots(2, len(PANEL_HORIZONS), figsize=(16.5, 9.8),
+                             constrained_layout=True)
+    for column, years in enumerate(PANEL_HORIZONS):
+        frame, index_rows = _at_horizon(classification, monte, years)
+        final = years == FRONTIER_HORIZON
+
+        ax = axes[0, column]
+        _trace(ax, frame, 'median_max_drawdown', 'median_cagr')
+        _scatter(ax, frame, 'median_max_drawdown', 'median_cagr', annotate=final)
+        _index_markers(ax, index_rows, 'max_drawdown_median', 'cagr_p50')
+        ax.set_xlabel('median max drawdown')
+        ax.set_ylabel(f'median {years}-year CAGR')
+        ax.set_title(f'{years}-year growth frontier'
+                     + (' (classification horizon)' if final else ''))
+        if column == 0:
+            ax.legend(fontsize=6.5, loc='lower left', ncol=2)
+
+        ax = axes[1, column]
+        _trace(ax, frame, 'p5_cagr', 'median_cagr', order='median_max_drawdown')
+        _scatter(ax, frame, 'p5_cagr', 'median_cagr', annotate=False)
+        _index_markers(ax, index_rows, 'cagr_p5', 'cagr_p50')
+        ax.set_xlabel(f'fifth-percentile {years}-year CAGR')
+        ax.set_ylabel(f'median {years}-year CAGR')
+        ax.set_title(f'{years}-year median against the bad case')
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def robust_figure(path: Path, classification: pd.DataFrame, monte: pd.DataFrame):
+    """The robust-growth frontier, and what a premium budget actually buys."""
+    fig, axes = plt.subplots(1, 2, figsize=(13.6, 5.6), constrained_layout=True)
+    frame, index_rows = _at_horizon(classification, monte, FRONTIER_HORIZON)
+
+    ax = axes[0]
+    _trace(ax, frame, 'prob_drawdown_worse_than_60', 'p5_cagr')
+    _scatter(ax, frame, 'prob_drawdown_worse_than_60', 'p5_cagr')
+    _index_markers(ax, index_rows, 'prob_drawdown_worse_than_60', 'cagr_p5')
+    ax.set_xlabel('P(max drawdown worse than 60%)')
+    ax.set_ylabel(f'fifth-percentile {FRONTIER_HORIZON}-year CAGR')
     ax.legend(fontsize=7, loc='lower left', ncol=2)
-    ax.set_title('A. Growth frontier')
+    ax.set_title('A. Robust-growth frontier')
 
     ax = axes[1]
     for family, marker in MARKER.items():
@@ -1074,28 +1166,6 @@ def growth_figure(path: Path, frame: pd.DataFrame, indices: pd.DataFrame):
     ax.set_ylabel('mean delta-equivalent equity exposure')
     ax.xaxis.set_major_formatter(PercentFormatter(1))
     ax.set_title('B. What the budget buys')
-    fig.savefig(path, dpi=160)
-    plt.close(fig)
-
-
-def robust_figure(path: Path, frame: pd.DataFrame, indices: pd.DataFrame):
-    fig, axes = plt.subplots(1, 2, figsize=(13.6, 5.6), constrained_layout=True)
-    ax = axes[0]
-    _scatter(ax, frame, 'prob_drawdown_worse_than_60', 'p5_cagr')
-    for name, marker in zip(INDEX_ROWS, ('*', 'D')):
-        row = indices.loc[name]
-        ax.scatter(row.prob_drawdown_worse_than_60, row.cagr_p5, marker=marker, s=90,
-                   color='k', zorder=5, label=SHORT[name])
-    ax.set_xlabel('P(max drawdown worse than 60%)')
-    ax.set_ylabel(f'fifth-percentile {FRONTIER_HORIZON}-year CAGR')
-    ax.legend(fontsize=7, loc='lower left', ncol=2)
-    ax.set_title('A. Robust-growth frontier')
-
-    ax = axes[1]
-    _scatter(ax, frame, 'p5_cagr', 'median_cagr', annotate=False)
-    ax.set_xlabel(f'fifth-percentile {FRONTIER_HORIZON}-year CAGR')
-    ax.set_ylabel(f'median {FRONTIER_HORIZON}-year CAGR')
-    ax.set_title('B. Median against the bad case')
     fig.savefig(path, dpi=160)
     plt.close(fig)
 
@@ -1161,11 +1231,8 @@ def run(root: Path, workers=None, paths=None, sensitivity_paths=None):
     for name, frame in outputs.items():
         frame.pipe(stable_floats).to_csv(reports / name, index=False,
                                          float_format=FLOAT_FORMAT)
-    plotted = classification.merge(
-        thirty.reset_index()[['strategy', 'family']], on='strategy', how='left',
-        suffixes=('', '_mc'))
-    growth_figure(reports / 'leaps_frontier_growth.png', plotted, thirty)
-    robust_figure(reports / 'leaps_frontier_robust.png', plotted, thirty)
+    growth_figure(reports / 'leaps_frontier_growth.png', classification, primary)
+    robust_figure(reports / 'leaps_frontier_robust.png', classification, primary)
     report(reports, inputs, historical, check, primary, sensitivities, classification,
            hypotheses, pairs, nasdaq, held, tiers, chosen, count)
 
@@ -1846,8 +1913,15 @@ drawn on the figures for reference but are excluded from the domination test:
 letting an unlevered index sit at the low-risk corner of a LEAPS frontier would
 define the question away.
 
-- **Growth frontier** — median {FRONTIER_HORIZON}-year CAGR against median max drawdown: `reports/leaps_frontier_growth.png`, panel A. Panel B is what each premium budget buys in delta-equivalent equity.
-- **Robust-growth frontier** — fifth-percentile {FRONTIER_HORIZON}-year CAGR against P(max drawdown worse than 60%): `reports/leaps_frontier_robust.png`, panel A. Panel B is the median against the bad case.
+- **Growth frontier** — median CAGR against median max drawdown, drawn at {phrase([str(y) for y in PANEL_HORIZONS])} years across the top row of `reports/leaps_frontier_growth.png`. The bottom row is the same cells over median CAGR against the fifth percentile, at the same three horizons.
+- **Robust-growth frontier** — fifth-percentile {FRONTIER_HORIZON}-year CAGR against P(max drawdown worse than 60%): `reports/leaps_frontier_robust.png`, panel A. Panel B is what each premium budget buys in delta-equivalent equity.
+
+Colours on every panel are the {FRONTIER_HORIZON}-year classification, and the line joins the
+cells that are non-dominated at {FRONTIER_HORIZON} years, ordered by risk. So the ten- and
+twenty-year panels are not frontiers recomputed at those horizons — they are the
+same cells, coloured by the same verdict, seen over the horizon a holder actually
+has. Where the curve keeps its shape, the {FRONTIER_HORIZON}-year classification is telling you
+something about a decade too; where it does not, it is not.
 
 Domination is epsilon-domination on the prespecified tolerances: {CAGR_TOLERANCE:.2%} of CAGR,
 {DRAWDOWN_TOLERANCE:.0%} of drawdown, {PROBABILITY_TOLERANCE:.0%} of tail probability. Two cells inside those are the

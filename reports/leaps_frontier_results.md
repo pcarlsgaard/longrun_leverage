@@ -232,8 +232,15 @@ drawn on the figures for reference but are excluded from the domination test:
 letting an unlevered index sit at the low-risk corner of a LEAPS frontier would
 define the question away.
 
-- **Growth frontier** — median 30-year CAGR against median max drawdown: `reports/leaps_frontier_growth.png`, panel A. Panel B is what each premium budget buys in delta-equivalent equity.
-- **Robust-growth frontier** — fifth-percentile 30-year CAGR against P(max drawdown worse than 60%): `reports/leaps_frontier_robust.png`, panel A. Panel B is the median against the bad case.
+- **Growth frontier** — median CAGR against median max drawdown, drawn at 10, 20 and 30 years across the top row of `reports/leaps_frontier_growth.png`. The bottom row is the same cells over median CAGR against the fifth percentile, at the same three horizons.
+- **Robust-growth frontier** — fifth-percentile 30-year CAGR against P(max drawdown worse than 60%): `reports/leaps_frontier_robust.png`, panel A. Panel B is what each premium budget buys in delta-equivalent equity.
+
+Colours on every panel are the 30-year classification, and the line joins the
+cells that are non-dominated at 30 years, ordered by risk. So the ten- and
+twenty-year panels are not frontiers recomputed at those horizons — they are the
+same cells, coloured by the same verdict, seen over the horizon a holder actually
+has. Where the curve keeps its shape, the 30-year classification is telling you
+something about a decade too; where it does not, it is not.
 
 Domination is epsilon-domination on the prespecified tolerances: 0.25% of CAGR,
 2% of drawdown, 2% of tail probability. Two cells inside those are the

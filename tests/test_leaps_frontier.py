@@ -1,4 +1,5 @@
 import ast
+import inspect
 import re
 import tempfile
 import unittest
@@ -21,7 +22,10 @@ from letf.leaps_frontier import (ANCHOR, APPROACH_BAND, Arm, BASELINE,
                                  REGIME_AXES, RETURN_TIERS, ROBUST_HOLDS, ROLL_LABEL,
                                  ROLL_LABELS, SENSITIVITY_ARMS, SLOT, SP_BUDGETS,
                                  SP_MONEYNESS, SP_STRUCTURES, SP_TARGETS, STRUCTURES,
-                                 UNDERLYING, Case, _dominates, _formats,
+                                 INDEX_ROWS, PANEL_HORIZONS, UNDERLYING, Case,
+                                 _at_horizon,
+                                 _dominates, _formats, _trace, growth_figure,
+                                 robust_figure,
                                  cheapest_reaching, classify, committed_check, dominators,
                                  frontier_flags, frontier_pool, historical_table, key,
                                  load, ndx_hypotheses, neighbour_support, regimes, report,
@@ -820,3 +824,47 @@ class EntryPointTests(unittest.TestCase):
 TOP_LEVEL_NAMES = {node.name for node in
                    ast.parse(EntryPointTests.SOURCE.read_text()).body
                    if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+
+
+class FigureTests(unittest.TestCase):
+    """The figures are excluded from the reproducibility gate, so they need their own."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.classification = pd.read_csv(ROOT / 'reports/leaps_frontier_classification.csv')
+        cls.monte = pd.read_csv(ROOT / 'reports/leaps_frontier_monte_carlo.csv')
+
+    def test_both_figures_render(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name, draw in (('growth.png', growth_figure), ('robust.png', robust_figure)):
+                path = Path(directory) / name
+                draw(path, self.classification, self.monte)
+                self.assertGreater(path.stat().st_size, 20000, name)
+
+    def test_the_growth_figure_covers_every_panel_horizon(self):
+        """A horizon with no rows would silently draw an empty panel."""
+        for years in PANEL_HORIZONS:
+            self.assertIn(years, set(self.monte.horizon_years), years)
+
+    def test_each_horizon_supplies_every_plotted_column(self):
+        for years in PANEL_HORIZONS:
+            frame, indices = _at_horizon(self.classification, self.monte, years)
+            for column in ('median_cagr', 'p5_cagr', 'median_max_drawdown',
+                           'prob_drawdown_worse_than_60', 'mean_delta_exposure'):
+                self.assertFalse(frame[column].isna().any(), f'{years}y {column}')
+            for name in INDEX_ROWS:
+                self.assertIn(name, indices.index)
+
+    def test_the_horizon_join_takes_that_horizon_s_numbers(self):
+        """The classification carries 30-year values; the panels must not reuse them."""
+        thirty, _ = _at_horizon(self.classification, self.monte, FRONTIER_HORIZON)
+        ten, _ = _at_horizon(self.classification, self.monte, 10)
+        pd.testing.assert_series_equal(thirty.median_cagr,
+                                       self.classification.median_cagr)
+        self.assertFalse(ten.median_cagr.equals(thirty.median_cagr))
+
+    def test_the_frontier_line_is_ordered_by_risk_not_by_the_axis(self):
+        """Sorting by the fifth percentile would connect the same cells as a zigzag."""
+        source = inspect.getsource(_trace)
+        self.assertIn("order='median_max_drawdown'", source)
+        self.assertIn('sort_values(order)', source)
