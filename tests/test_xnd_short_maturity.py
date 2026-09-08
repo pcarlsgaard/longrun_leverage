@@ -214,7 +214,7 @@ class GreekTests(unittest.TestCase):
 
     def test_volatility_always_adds_value(self):
         for name, variant in VARIANTS.items():
-            measured = greeks(self.market, roll_schedule(self.closes, variant.rule))
+            measured = greeks(*self.market[NASDAQ], roll_schedule(self.closes, variant.rule))
             self.assertTrue((measured['vega_per_value'] >= -1e-12).all(), name)
 
     def test_decay_is_a_drag_on_average_but_not_on_every_session(self):
@@ -227,18 +227,18 @@ class GreekTests(unittest.TestCase):
         so the drag is asserted where it is real: on the average.
         """
         for name, variant in VARIANTS.items():
-            measured = greeks(self.market, roll_schedule(self.closes, variant.rule))
+            measured = greeks(*self.market[NASDAQ], roll_schedule(self.closes, variant.rule))
             self.assertLess(measured['theta_per_value'].mean(), 0, name)
-        deep = greeks(self.market, roll_schedule(
+        deep = greeks(*self.market[NASDAQ], roll_schedule(
             self.closes, VARIANTS['NDX_80_25_24M_ROLL12M'].rule))
         self.assertTrue((deep['theta_per_value'] > 0).any())
 
     def test_a_shorter_contract_decays_faster_and_carries_less_vega(self):
         for structure in STRUCTURES:
             stem = structure.replace('NDX_LEAPS_', 'NDX_').replace('_TREASURY', '')
-            control = greeks(self.market, roll_schedule(
+            control = greeks(*self.market[NASDAQ], roll_schedule(
                 self.closes, VARIANTS[f'{stem}_24M_ROLL12M'].rule))
-            short = greeks(self.market, roll_schedule(
+            short = greeks(*self.market[NASDAQ], roll_schedule(
                 self.closes, VARIANTS[f'{stem}_15M_ROLL12M'].rule))
             self.assertLess(short['theta_per_value'].mean(),
                             control['theta_per_value'].mean())

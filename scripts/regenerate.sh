@@ -42,3 +42,4 @@ if needs lflr-reproduction;     then python -m letf.lflr_reproduction; fi
 if needs nasdaq-leaps;          then python -m letf.nasdaq_leaps; fi
 if needs leaps-frontier;        then python -m letf.leaps_frontier; fi
 if needs xnd-short-maturity;    then python -m letf.xnd_short_maturity; fi
+if needs leaps-duration;        then python -m letf.leaps_duration; fi

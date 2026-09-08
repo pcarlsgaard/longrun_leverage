@@ -27,6 +27,7 @@ longrun-leverage-lflr = "letf.lflr_reproduction:main"
 longrun-leverage-nasdaq-leaps = "letf.nasdaq_leaps:main"
 longrun-leverage-leaps-frontier = "letf.leaps_frontier:main"
 longrun-leverage-xnd = "letf.xnd_short_maturity:main"
+longrun-leverage-duration = "letf.leaps_duration:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

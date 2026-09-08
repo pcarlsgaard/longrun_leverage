@@ -85,6 +85,7 @@ STEPS = (
     Step('leaps-frontier', 'leaps_frontier_manifest.json', 'letf.leaps_frontier'),
     Step('xnd-short-maturity', 'xnd_short_maturity_manifest.json',
          'letf.xnd_short_maturity'),
+    Step('leaps-duration', 'leaps_duration_roll_manifest.json', 'letf.leaps_duration'),
 )
 NAMES = tuple(step.name for step in STEPS)
 
