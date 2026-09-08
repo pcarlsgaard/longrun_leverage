@@ -937,6 +937,9 @@ def neighbour_support(classification: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+# The five axes §10 asks a Nasdaq candidate to be better on.
+DOWNSIDE_AXES = ('ten_year_p5', 'twenty_year_p5', 'median_drawdown',
+                 'tail_probability', 'negative_decade')
 REGIME_NAMES = ('conservative growth', 'balanced growth', 'enhanced growth',
                 'aggressive growth', 'maximum growth')
 # A menu is only useful if a person can hold it in their head. Two axes of
@@ -1398,6 +1401,7 @@ def _answers(v, historical, nasdaq, tiers) -> str:
     held = v['held']
 
     def survives(target, column):
+        """The candidate's gap to one target under one arm, and the bar it must clear."""
         row = held.loc[(cheapest[target].candidate, target)]
         return float(row[column]), float(row['resolution_bar'])
 
@@ -1426,23 +1430,30 @@ def _answers(v, historical, nasdaq, tiers) -> str:
 
     lines.append(
         '**2. Is there a genuine middle-risk regime between 85/30 and 90/50?** '
-        + (f'Yes: {phrase([cell(n) for n in middle])}. '
+        'Within the S&P family, '
+        + (f'yes: {phrase([cell(n) for n in middle])}. '
            if middle else
-           'Not on the robust frontier. Every S&P cell with a budget strictly between '
-           '30% and 50% is either conditional or dominated, so the middle of the S&P '
-           'ladder is a continuum of indistinguishable cells rather than a regime an '
-           'investor would choose. ')
+           'no. Every S&P cell with a budget strictly between 30% and 50% is either '
+           'conditional or dominated even against its own family, so the middle of the '
+           'S&P ladder is a continuum of indistinguishable cells rather than a regime '
+           'an investor would choose. ')
         + f'The separation test used is the prespecified tolerance set — '
           f'{CAGR_TOLERANCE:.2%} of CAGR, {DRAWDOWN_TOLERANCE:.0%} of drawdown, '
           f'{PROBABILITY_TOLERANCE:.0%} of tail probability — widened to one volatility '
           'point wherever that is larger.')
 
+    def verdicts(name):
+        """Both classifications: quoting either alone reads as contradicting the other."""
+        row = v['cells'].loc[name]
+        return (f'*{row.classification}* against the whole lattice, holding '
+                f'{int(row.sensitivities_held)} of {len(SENSITIVITY_ARMS)} '
+                f'sensitivities, and *{row.family_classification}* within the S&P '
+                f'family, holding {int(row.family_sensitivities_held)}')
+
     step = v['q1']
     lines.append(
-        '**3. Does 85/40 survive?** SPX_85_40 is classified '
-        f'*{v["cells"].loc["SPX_85_40", "classification"]}*, holding '
-        f'{int(v["cells"].loc["SPX_85_40", "sensitivities_held"])} of '
-        f'{len(SENSITIVITY_ARMS)} sensitivities. Against 85/30 it gains '
+        f'**3. Does 85/40 survive?** SPX_85_40 is {verdicts("SPX_85_40")}. '
+        'Against 85/30 it gains '
         f'{step["median_cagr_gained"]:+.2%} of median CAGR and adds '
         f'{step["tail_probability_added"]:+.1%} to P(DD>60%), a price of '
         f'{step["tail_points_per_cagr_point"]:.1f} points of tail per point of CAGR. '
@@ -1464,10 +1475,8 @@ def _answers(v, historical, nasdaq, tiers) -> str:
 
     into, out = v['q2_into'], v['q2_out']
     lines.append(
-        '**4. Does 90/40 survive?** SPX_90_40 is classified '
-        f'*{v["cells"].loc["SPX_90_40", "classification"]}*, holding '
-        f'{int(v["cells"].loc["SPX_90_40", "sensitivities_held"])} of '
-        f'{len(SENSITIVITY_ARMS)}. As an elbow it is '
+        f'**4. Does 90/40 survive?** SPX_90_40 is {verdicts("SPX_90_40")}. '
+        'As an elbow it is '
         + ('genuine: ' if out['tail_points_per_cagr_point']
            > into['tail_points_per_cagr_point'] else 'not genuine: ')
         + f'the step into it (35% to 40%) costs '
@@ -1517,6 +1526,8 @@ def _answers(v, historical, nasdaq, tiers) -> str:
           'unchanged from a less volatile market.')
 
     reach = cheapest['SPX_90_50']
+    reached = [t for t, row in cheapest.items() if row.approaches]
+    missed = [t for t in SP_TARGETS if t not in reached]
     lines.append(
         '**7. Can Nasdaq achieve S&P 90/50-like growth with only 20-30% option '
         'capital?** '
@@ -1525,54 +1536,74 @@ def _answers(v, historical, nasdaq, tiers) -> str:
            f'{FRONTIER_HORIZON}-year CAGR '
            f'({reach.median_30y_cagr_gap:+.2%}), saving {reach.budget_saved:.0%} of '
            'capital, and is better on '
-           f'{sum(1 for k in ("ten_year_p5", "twenty_year_p5", "median_drawdown", "tail_probability", "negative_decade") if float(reach[f"{k}_advantage"]) > 0)} '
-           'of the five downside axes.'
+           f'{sum(1 for k in DOWNSIDE_AXES if float(reach[f"{k}_advantage"]) > 0)} '
+           'of the five downside axes. '
            if reach.approaches else
-           'No. The nearest Nasdaq cell at a budget of 30% or less is '
+           'No, not that one. The nearest Nasdaq cell at a budget of 30% or less is '
            f'{reach.candidate}, {abs(reach.median_30y_cagr_gap):.2%} short of SPX_90_50 '
            f'on the median {FRONTIER_HORIZON}-year CAGR, outside the '
-           f'{APPROACH_BAND:.0%} band.'))
+           f'{APPROACH_BAND:.0%} band. ')
+        # The question names one target; the hypothesis it comes from names three,
+        # and answering only the named one would hide that the same cell reaches
+        # the other two on the same capital.
+        + (f'It does reach {phrase(reached)} on the same '
+           f'{reach.candidate_budget:.0%} of capital'
+           + (f', but not {phrase(missed)}.' if missed else ' — all three targets.')
+           if reached else
+           f'It reaches none of {phrase(SP_TARGETS)} inside that band.'))
 
     lines.append(
         '**8. Does that advantage survive the dot-com bust?** '
-        'The bust is inside the sample, not excluded. '
-        + (f'{reach.candidate} lost {reach.candidate_2000_2002:.1%} across 2000-2002 '
-           f'against SPX_90_50\'s {reach.target_2000_2002:.1%}, '
-           + ('so the Nasdaq structure came through the episode better despite being '
-              'written on the index that fell furthest — the Treasury sleeve and the '
-              'bounded option leg absorbed it.'
-              if reach.candidate_2000_2002 > reach.target_2000_2002 else
-              'so the Nasdaq structure came through the episode worse, and the '
-              'advantage everywhere else is bought with that episode.')
-           if reach.approaches else
-           f'{reach.candidate}, the nearest Nasdaq cell at 30% of capital or less, '
-           f'lost {reach.candidate_2000_2002:.1%} across 2000-2002 against '
-           f'SPX_90_50\'s {reach.target_2000_2002:.1%}. It does not reach the target '
-           'on growth, so the episode decides nothing on its own.'))
+        'The bust is inside the sample, not excluded, and it is the worst equity episode '
+        'either family faces. Measured '
+        + '; '.join(
+            f'against {target}, {row.candidate} lost {row.candidate_2000_2002:.1%} '
+            f'across 2000-2002 where the S&P cell lost {row.target_2000_2002:.1%}'
+            for target, row in cheapest.items())
+        + '. '
+        + ('The Nasdaq structures came through the episode better than the S&P cells '
+           'they are compared against, despite being written on the index that fell '
+           'furthest — the Treasury sleeve and the bounded option leg absorbed it.'
+           if all(row.candidate_2000_2002 > row.target_2000_2002
+                  for row in cheapest.values()) else
+           'So the episode is not uniformly kind to the Nasdaq structures, and where '
+           'they lose more it is the price of the advantage they show elsewhere.'))
 
-    candidate = reach.candidate
-    block_21_gap, block_bar = survives('SPX_90_50', 'block_21:baseline')
-    block_126_gap, _ = survives('SPX_90_50', 'block_126:baseline')
-    vol_gap, vol_bar = survives('SPX_90_50', 'iv_premium:iv_6')
-    lines.append(
-        '**9. Does it survive block-bootstrap reordering?** '
-        'The whole comparison is made on reordered history — the primary run is a '
-        f'{PRIMARY_BLOCK}-session moving-block bootstrap — and {candidate}\'s gap to '
-        'SPX_90_50 is also computed at 21 and 126 sessions. At 21 it is '
-        f'{block_21_gap:+.2%} against a resolution bar of {block_bar:.2%}; at 126 it is '
-        f'{block_126_gap:+.2%}. '
-        + ('It holds under both.' if min(block_21_gap, block_126_gap) >= -block_bar
-           else 'It does not hold under both.'))
+    def arm_survival(number, question, arms, closing):
+        """One sensitivity, asked of every target rather than of one."""
+        rows = []
+        for target, row in cheapest.items():
+            gap, bar = survives(target, arms[0])
+            gaps = [survives(target, arm)[0] for arm in arms]
+            rows.append((target, row.candidate, gaps, bar, min(gaps) >= -bar))
+        holding = [target for target, _, _, _, held in rows if held]
+        detail = '; '.join(
+            f'against {target} the gap is '
+            + phrase([f'{gap:+.2%}' for gap in gaps])
+            + f' on a {bar:.2%} bar' for target, _, gaps, bar, _ in rows)
+        return (f'**{number}. {question}** {detail[0].upper() + detail[1:]}. '
+                + (f'It holds against {phrase(holding)}'
+                   + (f' and not against {phrase([t for t, *_ in rows if t not in holding])}.'
+                      if len(holding) < len(rows) else ' — every target.')
+                   if holding else 'It holds against none of them.')
+                + closing)
 
-    lines.append(
-        '**10. Does it survive +6 vol-point option pricing?** '
-        f'At a six-point loading the gap is {vol_gap:+.2%} against the same '
-        f'{vol_bar:.2%} bar. '
-        + ('It holds. ' if vol_gap >= -vol_bar else 'It does not hold. ')
-        + 'The Nasdaq structures are charged the S&P\'s loading in absolute volatility '
-          'points, which on a more volatile underlying is proportionally a smaller '
-          'charge; this arm is the closest thing here to a correction for that, and it '
-          'is not a measurement of real Nasdaq option prices.')
+    lines.append(arm_survival(
+        9, 'Does it survive block-bootstrap reordering?',
+        ('block_21:baseline', 'block_126:baseline'),
+        f' The whole comparison is already made on reordered history — the primary run '
+        f'is a {PRIMARY_BLOCK}-session moving-block bootstrap — so this asks only '
+        'whether the block length the reordering uses changes the answer; the two '
+        'figures quoted are 21 sessions and 126.'))
+
+    lines.append(arm_survival(
+        10, 'Does it survive +6 vol-point option pricing?', ('iv_premium:iv_6',),
+        ' The Nasdaq structures are charged the S&P\'s loading in absolute volatility '
+        'points, which on a more volatile underlying is proportionally a smaller '
+        'charge, so a dearer option arm costs the higher-budget S&P cells more than it '
+        'costs these; that is why the gap moves the way it does. This arm is the '
+        'closest thing here to a correction for the imported premium, and it is not a '
+        'measurement of real Nasdaq option prices.'))
 
     lines.append(
         '**11. Which strategies remain efficient across most sensitivities?** '
