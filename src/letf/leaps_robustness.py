@@ -358,7 +358,15 @@ class Horizon:
     elapsed_days: float
 
 
-def build_horizon(inputs: Inputs, years: int, intervals) -> Horizon:
+def build_horizon(inputs: Inputs, years: int, intervals, structures=None) -> Horizon:
+    """One horizon's calendar, roll schedules and cohort windows.
+
+    `structures` defaults to this module's three. A study comparing a different
+    set — a second underlying, say — passes its own, because the schedule
+    carries the rule that will be applied and so cannot be shared between
+    structures with different strikes.
+    """
+    structures = structures or STRUCTURES
     closes_all = inputs.spot.index
     entry = WARMUP_SESSIONS
     end = closes_all.searchsorted(closes_all[entry] + pd.DateOffset(years=years))
@@ -366,9 +374,9 @@ def build_horizon(inputs: Inputs, years: int, intervals) -> Horizon:
         raise ValueError('Comparison window is too short for this horizon plus warm-up')
     calendar = closes_all[:end + 1]
     closes = calendar[entry:]
-    schedules = {(name, label): roll_schedule(closes, leaps_rule(*STRUCTURES[name],
+    schedules = {(name, label): roll_schedule(closes, leaps_rule(*structures[name],
                                                                  ROLL_INTERVALS[label]))
-                 for name in STRUCTURES for label in intervals}
+                 for name in structures for label in intervals}
     unit = pd.Series(np.ones(len(closes)), index=closes)
     cohorts = {}
     for horizon in (10, 20):
@@ -399,7 +407,8 @@ def rebalanced(legs: np.ndarray, starts: np.ndarray, weights: np.ndarray) -> np.
     return values / np.r_[1., values[:-1]] - 1
 
 
-def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True):
+def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True,
+               price_col=None, yield_col=None):
     """Rebuild every model input inside one resampled path, by the same rules.
 
     Volatility, the risk-free level and the trend signal are *recomputed* from
@@ -408,7 +417,7 @@ def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True):
     know about crashes the simulated path never had, and a trend signal
     resampled as a state would be right about a future it cannot see.
     """
-    price_return = np.r_[0., sample[:, PRICE]]
+    price_return = np.r_[0., sample[:, PRICE if price_col is None else price_col]]
     price = pd.Series(np.cumprod(1 + price_return), index=calendar, name='price')
     returns = pd.Series(price_return, index=calendar)
     vol = implied_volatility_proxy(returns, IV_PREMIUM, MATURITY_YEARS)
@@ -416,7 +425,8 @@ def build_path(sample: np.ndarray, calendar: pd.DatetimeIndex, signal=True):
     # for the rolling cash-rate estimate. That lands 504 sessions before any
     # position is opened and is discarded with the rest of the warm-up.
     riskfree = trailing_riskfree(pd.Series(np.r_[0., sample[:, CASH_R]], index=calendar))
-    dividend = np.r_[sample[0, YIELD], sample[:, YIELD]]
+    column = YIELD if yield_col is None else yield_col
+    dividend = np.r_[sample[0, column], sample[:, column]]
     # Only a caller with a trend rule pays for one; the signal is a third of the
     # per-path cost and a study without a timing strategy has no use for it.
     position = level_position(price, calendar, SMA_DAYS, LAG) if signal else None

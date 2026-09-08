@@ -53,6 +53,8 @@ with a compressed initial data snapshot in `data/snapshots/`.
 | `reports/leaps_monte_carlo_{percentiles,drawdowns,ranks,blocks}.csv` | Percentile tables, drawdown probabilities, rank stability, block-length sensitivity |
 | `reports/leaps_treasury_leverage_historical.csv` | Every structure at every sleeve leverage, with measured financing drag and the joint-loss diagnostic |
 | `reports/leaps_treasury_leverage_{monte_carlo,stress,frontier}.csv` | Bootstrap distributions, the prolonged rates shock, and the compact frontier |
+| `reports/lflr_reproduction{,_decomposition,_transitions}.csv` | The reproducibility ladder, its decomposition, and every dated crossover |
+| `reports/nasdaq_leaps_{historical,breakeven,monte_carlo,comparison}.csv` | Nasdaq against S&P LEAPS, with break-even volatility premiums |
 
 Suffixes distinguish `BASE` (unfitted 50 bp spread), `TRAINED` (one spread fitted
 through 2018), `SPREAD_0BP/50BP/100BP` (funding sensitivity), `NAV` and `MARKET`
@@ -389,6 +391,63 @@ PYTHONPATH=src python -m letf.treasury_leverage             # ~3 min on four cor
 PYTHONPATH=src python -m letf.treasury_leverage --paths 500 # a quicker look
 ```
 
+## Does our SMA implementation actually disagree with the published paper?
+
+The post-COVID revision of *Leverage for the Long Run* reports roughly 35.4% for
+buying and holding UPRO to the end of 2020 and roughly 24.2% for rotating between
+UPRO and Treasury bills on a 200-day average.
+[`letf.lflr_reproduction`](reports/lflr_reproduction.md) asks whether this
+repository's lower numbers are a disagreement about the data or about the method,
+by varying one assumption at a time on the paper's own window.
+
+* **Both published figures reproduce**, to within a basis point on buy-and-hold
+  and a few on the rotation. The reconstruction this repository uses before the
+  fund existed is indistinguishable from the fund over the years both cover, so
+  the leveraged series is not the explanation.
+* **Our preferred implementation lands within half a point of the paper** over
+  the paper's own window — the disagreement is a longer-window phenomenon, not a
+  2009-2020 one.
+* **The decomposition does not add up, and that is the finding.** One session of
+  execution timing is worth −0.85% on a total-return signal and +5.87% on a price
+  signal. The same assumption, opposite sign. No ordering of the steps is
+  privileged, so the report gives both the sequential walk and the
+  one-at-a-time effects and quotes ranges rather than point estimates.
+* Every crossover is dated three ways — signal close, execution close, first
+  affected return — and saved, because prior work here established that a
+  handful of sessions can carry decades.
+
+```bash
+PYTHONPATH=src python -m letf.lflr_reproduction
+```
+
+## Does a faster-growing underlying need less option capital?
+
+[`letf.nasdaq_leaps`](reports/nasdaq_leaps_comparison.md) writes the same LEAPS
+architecture on the Nasdaq-100 instead of the S&P 500 — four prespecified
+structures at 80-85% strikes and 20-30% premium budgets, nothing searched, the
+volatility methodology deliberately not retuned.
+
+* **A Nasdaq structure at 30% premium reaches within a point of the S&P's 50%
+  structure**, with roughly a third of its probability of a 60% drawdown and a
+  higher fifth percentile at every horizon measured.
+* **It survived the dot-com bust better than the S&P structure of comparable
+  return**, which is the sharpest available test and the strongest thing in the
+  report.
+* **The whole advantage is the underlying's growth advantage passed through**, and
+  the bootstrap cannot test whether that persists — every path is resampled from
+  days on which it did.
+* **The volatility premium is imported from a different market.** Nasdaq realized
+  volatility is materially higher, so a flat three-point premium is
+  proportionally a smaller loading; the report gives break-even premiums and a
+  proportionally matched rerun rather than trusting the point estimate.
+* Nasdaq total returns are a price-only proxy through 1999-03-04. The 1987 column
+  sits entirely inside that era and is labelled; twenty-year cohorts entering
+  after it are reported separately.
+
+```bash
+PYTHONPATH=src python -m letf.nasdaq_leaps        # ~1 min on four cores
+```
+
 ## Reproducing every committed result
 
 ```bash
@@ -440,6 +499,9 @@ Collected rather than scattered, because they bound every result above:
 - **One rate regime.** The whole window is a secular decline in yields, so the
   leveraged-Treasury leg of any hedged structure is itself a single-regime bet,
   in exactly the way October 1987 is for the trend rule.
+- **The Nasdaq advantage is a growth-regime bet.** Every Nasdaq LEAPS result
+  inherits the Nasdaq's historical excess growth over the S&P, which is an input
+  to every simulated path rather than a finding of any of them.
 - **One joint-loss episode.** The whole case for a levered Treasury sleeve rests
   on how often equities and duration fall together. The record contains one such
   stretch, in 2022, lasting ten months — which is why the synthetic shock that

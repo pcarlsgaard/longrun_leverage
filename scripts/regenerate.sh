@@ -20,3 +20,5 @@ python -m letf.null_model
 python -m letf.hedge_alternatives
 python -m letf.leaps_robustness
 python -m letf.treasury_leverage
+python -m letf.lflr_reproduction
+python -m letf.nasdaq_leaps

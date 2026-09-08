@@ -128,18 +128,23 @@ def comparison_window(daily, calendar, price, nasdaq):
     ], axis=1)).index
 
 
-def option_inputs(daily, price, ix, calendar):
+def option_inputs(daily, price, ix, calendar, total_return=EQUITY):
     """Spot, dividend yield, risk-free rate and implied volatility on the closes.
 
     The option calendar starts one session before the return window, because
     wealth is 1.0 at the entry close and the first return is earned after it.
+
+    `total_return` names the distribution-inclusive series matching `price`; the
+    gap between the two is what the dividend yield is read from, so the pair has
+    to describe the same index. It is a parameter only so that a second
+    underlying can be priced by this same function rather than a copy of it.
     """
     entry = calendar[calendar.get_loc(ix[0]) - 1]
     closes = pd.DatetimeIndex([entry]).append(ix)
     spot = price.reindex(closes)
     if spot.isna().any():
         raise ValueError('Price index does not cover the comparison window')
-    dividend = trailing_dividend_yield(spot, daily[EQUITY].reindex(closes))
+    dividend = trailing_dividend_yield(spot, daily[total_return].reindex(closes))
     riskfree = trailing_riskfree(daily[CASH].reindex(closes))
     vol = implied_volatility_proxy(spot.pct_change().fillna(0.), IV_PREMIUM, MATURITY_YEARS)
     return spot, dividend, riskfree, vol

@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from letf.hedge_alternatives import CRASHES, TMF, TREASURY, cagr, constant_leverage
+from letf.hedge_alternatives import CRASHES, TREASURY, constant_leverage
 from letf.leaps_robustness import PRIMARY_BLOCK, SEED, STRUCTURES, WARMUP_SESSIONS
 from letf.treasury_leverage import (JOINT_WINDOWS, LEVERAGES, ROLL_LABEL, SHOCK_OFFSETS,
                                     SHOCK_REPEATS, SLOT, STRESS_LEVERAGE, bond_financing,
                                     build_horizon, daily_reset, exchange_rates, figure,
-                                    frontier_table, historical_frontier, historical_row,
+                                    frontier_table, historical_frontier,
                                     joint_loss, label, load, monte_carlo, report,
                                     rolling_compound, run_path, shock_path, shock_sample,
                                     shock_table, short, summarize, treasury_pool,
