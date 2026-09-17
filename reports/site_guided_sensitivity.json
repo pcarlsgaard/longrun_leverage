@@ -1,0 +1,249 @@
+{
+  "version": 1,
+  "purpose": "Drive an exploratory learning layer that asks the economically important question before exposing controls, then explains what changed and why.",
+  "interaction_loop": ["observe", "ask", "test", "explain", "compare"],
+  "global_rules": {
+    "show_question_before_controls": true,
+    "distinguish_exposure_from_efficiency": true,
+    "distinguish_model_uncertainty_from_strategy_uncertainty": true,
+    "surface_stop_rule_when_unresolvable": true,
+    "selected_strategy_syncs_across_timeline_frontier_monte_carlo_sensitivity": true,
+    "default_explanation_sections": ["what_changed", "why_it_changed", "what_to_ask_next"]
+  },
+  "families": {
+    "leaps": {
+      "title": "LEAPS + safe asset",
+      "thesis": "Use options for capital-efficient equity exposure while keeping residual capital in a safe or diversifying sleeve. The key question is whether the equity growth obtained is worth the price paid for long-dated convexity.",
+      "implicit_bets": [
+        "Equity growth exceeds the option-pricing hurdle over long horizons",
+        "Long-dated implied volatility and downside skew are not persistently too expensive",
+        "The residual Treasury or safe-asset sleeve contributes enough diversification or carry to justify its capital allocation"
+      ],
+      "does_not_require": [
+        "Predicting the timing of crashes",
+        "A uniquely optimal contract maturity",
+        "Frequent tactical trading"
+      ],
+      "sensitivity_hierarchy": {
+        "first_order": ["option_iv_and_skew", "underlying_growth"],
+        "second_order": ["premium_budget_and_delta", "realized_volatility", "treasury_behavior"],
+        "implementation": ["maturity", "roll_interval", "moderate_spread_changes"]
+      },
+      "questions": [
+        {
+          "id": "leaps_source_of_return",
+          "prompt": "Why does this structure outperform 1x equities: more exposure, option convexity, or the Treasury sleeve?",
+          "test": "decompose_exposure_and_sleeve",
+          "answer_hint": "Compare delta-equivalent equity exposure and the residual sleeve before attributing excess return to structural efficiency."
+        },
+        {
+          "id": "leaps_iv_hurdle",
+          "prompt": "How expensive can long-dated options become before this strategy loses its advantage?",
+          "test": "iv_loading_sensitivity",
+          "controls": ["rv_plus_0", "rv_plus_3", "rv_plus_6", "rv_plus_9"],
+          "answer_hint": "A higher IV loading raises the price of each call. At a fixed premium budget the portfolio buys fewer contracts and usually less delta; distinguish that exposure effect from pure option-decay effects."
+        },
+        {
+          "id": "leaps_duration",
+          "prompt": "Did a different maturity improve the strategy, or did it just buy a different amount of delta per premium dollar?",
+          "test": "duration_fixed_budget_then_matched_delta",
+          "answer_hint": "The duration study found most apparent maturity advantages collapsed after matching delta; differences were generally smaller than one-vol-point option-pricing uncertainty."
+        },
+        {
+          "id": "leaps_treasury_failure",
+          "prompt": "What happens when equities and long Treasuries fall together?",
+          "test": "joint_equity_bond_stress",
+          "answer_hint": "Use 2022 and repeated-2022 style stress to separate equity-option risk from dependence on the diversifying sleeve."
+        },
+        {
+          "id": "leaps_budget",
+          "prompt": "When a higher premium budget raises CAGR, did efficiency improve or did the portfolio simply take more equity risk?",
+          "test": "neighbor_compare",
+          "answer_hint": "Compare median CAGR, p5 CAGR, drawdown probabilities, and mean delta together."
+        }
+      ],
+      "discoveries": [
+        {
+          "trigger": "short_maturity_outperforms_fixed_budget",
+          "headline": "Shorter calls appear to outperform.",
+          "notice": "Check mean delta before calling this a maturity advantage.",
+          "next_test": "match_delta_and_retest",
+          "lesson": "In the XND experiment, much of the fixed-budget advantage came from shorter calls purchasing more delta."
+        },
+        {
+          "trigger": "duration_difference_below_one_vol_point",
+          "headline": "The maturity ranking is below the model's resolution.",
+          "notice": "The observed return difference is smaller than the CAGR effect of one volatility point of option-pricing error.",
+          "next_test": "iv_loading_sensitivity",
+          "lesson": "Stop optimizing maturity and test option pricing instead."
+        }
+      ],
+      "source_reports": [
+        "reports/leaps_frontier_results.md",
+        "reports/leaps_duration_roll_results.md",
+        "reports/xnd_short_maturity_results.md",
+        "reports/leaps_treasury_leverage_results.md",
+        "reports/hedge_alternatives_results.md"
+      ]
+    },
+    "sma_rotation": {
+      "title": "200-day leverage rotation",
+      "thesis": "Use a robust trend state primarily to vary leverage intensity rather than to forecast whether equities should be owned at all.",
+      "implicit_bets": [
+        "Persistent adverse regimes can be identified soon enough to reduce destructive leverage",
+        "Whipsaw and execution costs do not consume the leverage-timing benefit",
+        "Future crashes are not dominated by instantaneous reversals that defeat the signal"
+      ],
+      "does_not_require": [
+        "Forecasting exact market returns",
+        "Exiting equities completely below the moving average",
+        "A uniquely optimal 200-day window"
+      ],
+      "sensitivity_hierarchy": {
+        "first_order": ["trend_regime_usefulness", "crash_and_reversal_path"],
+        "second_order": ["sma_window", "execution_lag", "whipsaw_frequency"],
+        "implementation": ["moderate_switching_cost", "small_window_changes_within_150_250_days"]
+      },
+      "questions": [
+        {
+          "id": "sma_what_is_signal_doing",
+          "prompt": "Is the moving average forecasting equity returns, or mainly identifying times when high leverage is poorly compensated?",
+          "test": "compare_risk_off_destinations",
+          "answer_hint": "Compare leveraged-to-1x with leveraged-to-T-bill rules. The repo generally found the 1x risk-off state more robust for long-run wealth."
+        },
+        {
+          "id": "sma_crash_concentration",
+          "prompt": "How much of the apparent edge comes from a few crash sessions?",
+          "test": "top_day_concentration",
+          "answer_hint": "Measure concentration against both always-on leverage and the 1x index; concentration is pair-dependent."
+        },
+        {
+          "id": "sma_execution",
+          "prompt": "Would a retail investor still capture the result after the signal is observable and the trade is executable?",
+          "test": "execution_lag_bounds",
+          "controls": ["lag1_bound", "next_open_if_available", "lag2_bound"],
+          "answer_hint": "Treat LAG1 and LAG2 as implementation bounds unless a next-open reconstruction is available."
+        },
+        {
+          "id": "sma_window_robustness",
+          "prompt": "Does the result survive a broad 150-250 day window, or depend on exactly 200 days?",
+          "test": "window_robustness",
+          "answer_hint": "A broad plateau is more persuasive than a sharp optimum."
+        },
+        {
+          "id": "sma_v_reversal",
+          "prompt": "What happens when the market falls quickly and reverses before the signal can re-enter leverage?",
+          "test": "fast_reversal_stress",
+          "answer_hint": "This is a characteristic path risk for trend-based leverage control."
+        }
+      ],
+      "discoveries": [
+        {
+          "trigger": "risk_off_1x_beats_cash",
+          "headline": "The signal may be timing leverage more than equities.",
+          "notice": "Remaining in 1x equities below the SMA can preserve long-run compounding better than moving fully to cash.",
+          "next_test": "compare_risk_off_destinations",
+          "lesson": "Frame the SMA as a leverage-state indicator, not necessarily a market-in-or-out predictor."
+        },
+        {
+          "trigger": "window_plateau_150_250",
+          "headline": "The exact 200-day value is probably not the thesis.",
+          "notice": "A broad window of similar results suggests regime detection rather than parameter magic.",
+          "next_test": "execution_lag_bounds",
+          "lesson": "Favor parsimonious robustness over optimizing the moving-average length."
+        }
+      ],
+      "source_reports": [
+        "reports/price_signal_revision_results.md",
+        "reports/sma_falsification_results.md",
+        "reports/signal_null_model_results.md",
+        "reports/regime_signal_results.md"
+      ]
+    },
+    "always_on_leverage": {
+      "title": "Always-on leveraged equity",
+      "thesis": "Exchange higher equity exposure for greater volatility drag, financing cost, and crash sensitivity. Long-run success depends on the interaction between arithmetic return and the path of returns.",
+      "implicit_bets": [
+        "The equity risk premium is high enough to overcome volatility drag",
+        "Financing remains tolerable",
+        "The investor survives severe drawdowns without forced selling"
+      ],
+      "sensitivity_hierarchy": {
+        "first_order": ["underlying_return", "realized_volatility"],
+        "second_order": ["financing_cost", "sequence_of_returns"],
+        "implementation": ["small_fee_differences"]
+      },
+      "questions": [
+        {
+          "id": "always_on_path",
+          "prompt": "Why can 3x daily exposure produce far less than 3x long-run return?",
+          "test": "compounding_decomposition",
+          "answer_hint": "Separate arithmetic leverage from volatility drag and financing."
+        },
+        {
+          "id": "always_on_return_vs_vol",
+          "prompt": "Which matters more here: a lower average equity return or a more volatile path?",
+          "test": "return_volatility_grid",
+          "answer_hint": "Map geometric wealth across both dimensions rather than changing one assumption in isolation."
+        },
+        {
+          "id": "always_on_survival",
+          "prompt": "How large can the drawdown become before the strategy is behaviorally or financially unholdable?",
+          "test": "historical_and_bootstrap_drawdown",
+          "answer_hint": "A strategy that survives mathematically can still fail if the investor cannot remain invested."
+        }
+      ],
+      "source_reports": [
+        "reports/compounding_decomposition.csv",
+        "reports/hedge_alternatives_results.md"
+      ]
+    },
+    "stock_bond_leverage": {
+      "title": "Leveraged stock-bond portfolios",
+      "thesis": "Combine risky assets whose diversification can permit higher total exposure. The central risk is that the historical equity-bond hedge relationship changes when inflation and rates dominate both legs.",
+      "implicit_bets": [
+        "Equities and duration do not remain positively correlated during the worst periods",
+        "Bond carry and convexity compensate for financing and duration risk",
+        "Rebalancing retains enough diversification benefit to justify leverage"
+      ],
+      "sensitivity_hierarchy": {
+        "first_order": ["equity_bond_correlation", "inflation_rate_regime"],
+        "second_order": ["bond_duration", "financing_cost", "rebalance_path"],
+        "implementation": ["modest_weight_changes"]
+      },
+      "questions": [
+        {
+          "id": "stock_bond_2022",
+          "prompt": "What if the hedge asset falls at the same time as equities?",
+          "test": "joint_equity_bond_stress",
+          "answer_hint": "Use 2022 as a direct falsification case rather than relying on average historical correlation."
+        },
+        {
+          "id": "stock_bond_risk_contribution",
+          "prompt": "Does the bond sleeve diversify risk, or merely look large by capital weight?",
+          "test": "risk_contribution_view",
+          "answer_hint": "Compare duration and volatility contribution, not just portfolio percentages."
+        },
+        {
+          "id": "stock_bond_more_bond_leverage",
+          "prompt": "Does adding Treasury leverage improve the lower tail or simply increase gross exposure?",
+          "test": "treasury_leverage_ladder",
+          "answer_hint": "The repo found only modest Treasury leverage attractive in some cells; larger leverage often reduced p5 outcomes."
+        }
+      ],
+      "source_reports": [
+        "reports/leaps_treasury_leverage_results.md",
+        "reports/hedge_alternatives_results.md"
+      ]
+    }
+  },
+  "ui_copy": {
+    "panel_title": "Questions worth asking",
+    "sensitivity_tab": "Sensitivity",
+    "test_button": "Test this",
+    "matched_exposure_button": "Match exposure and retest",
+    "compare_button": "Compare on frontier",
+    "stop_label": "Below model resolution",
+    "stop_copy": "This difference is smaller than the uncertainty in the model assumption that drives it. Stop tuning this parameter and test the larger uncertainty instead."
+  }
+}

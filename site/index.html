@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Explore long-run leverage strategies, their frontiers, and the assumptions that make them work or fail." />
+  <title>Longrun · Leverage Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="Longrun Leverage Lab home">
+      <span>LONGRUN</span><span class="brand-slash">/</span><span>LEVERAGE LAB</span>
+    </a>
+    <a class="source-link" href="https://github.com/pcarlsgaard/longrun_leverage" target="_blank" rel="noreferrer">Research source ↗</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">FINANCE SIMULATIONS</p>
+      <h1>Explore the trade-offs.</h1>
+      <p class="hero-copy">Growth, drawdowns, and the cost of leverage—then ask what assumptions make each result possible.</p>
+      <div class="hero-meta">
+        <span id="snapshot-status" class="status-dot">Loading the research snapshot…</span>
+        <span>Modeled results are educational research, not investment advice.</span>
+      </div>
+    </section>
+
+    <nav class="analysis-nav" aria-label="Analysis modes">
+      <button class="nav-tab active" data-view="frontier">Frontier</button>
+      <button class="nav-tab" data-view="montecarlo">Monte Carlo</button>
+      <button class="nav-tab" data-view="sensitivity">Sensitivity</button>
+      <button class="nav-tab" data-view="longrange">Long-range assessment</button>
+    </nav>
+
+    <section class="workspace">
+      <aside class="strategy-rail">
+        <div class="rail-sticky">
+          <div class="rail-label">SELECTED STRATEGY</div>
+          <select id="strategy-select" aria-label="Selected strategy"></select>
+          <div id="strategy-summary" class="strategy-summary"></div>
+
+          <div class="rail-label rail-space">HORIZON</div>
+          <div class="segmented" id="horizon-control" aria-label="Horizon">
+            <button data-horizon="10">10y</button>
+            <button data-horizon="20" class="active">20y</button>
+            <button data-horizon="30">30y</button>
+          </div>
+
+          <div class="rail-label rail-space">READ THE POINT</div>
+          <div id="point-reading" class="point-reading"></div>
+        </div>
+      </aside>
+
+      <div class="analysis-area">
+        <section id="view-frontier" class="view active">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">RISK / GROWTH FRONTIER</p>
+              <h2>What are you buying with more risk?</h2>
+            </div>
+            <div class="axis-picker">
+              <label>
+                X axis
+                <select id="x-axis">
+                  <option value="cagr_p50">Median CAGR</option>
+                  <option value="mean_delta_exposure">Mean equity delta</option>
+                  <option value="premium_budget">Premium budget</option>
+                </select>
+              </label>
+              <label>
+                Y axis
+                <select id="y-axis">
+                  <option value="cagr_p5">5th-percentile CAGR</option>
+                  <option value="max_drawdown_median">Median max drawdown</option>
+                  <option value="prob_drawdown_worse_than_60">P(drawdown &gt;60%)</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div id="frontier-chart" class="svg-chart" role="img" aria-label="Efficient frontier scatter plot"></div>
+            <div class="chart-legend"><span class="legend-dot spx"></span>SPX LEAPS <span class="legend-dot ndx"></span>NDX LEAPS <span class="legend-ring"></span>non-dominated</div>
+          </div>
+          <div id="frontier-insight" class="insight-card"></div>
+        </section>
+
+        <section id="view-montecarlo" class="view">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">DISTRIBUTION, NOT POINT ESTIMATE</p>
+              <h2>What does a bad but plausible path look like?</h2>
+            </div>
+          </div>
+          <div id="mc-metrics" class="metric-grid"></div>
+          <div class="chart-card distribution-card">
+            <div class="distribution-labels"><span>p5</span><span>p10</span><span>median</span><span>p90</span><span>p95</span></div>
+            <div id="distribution-strip" class="distribution-strip"></div>
+          </div>
+          <div id="mc-explanation" class="insight-card"></div>
+        </section>
+
+        <section id="view-sensitivity" class="view">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">OBSERVE → ASK → TEST → EXPLAIN → COMPARE</p>
+              <h2>Ask the question that can change the thesis.</h2>
+            </div>
+          </div>
+          <div id="thesis-card" class="thesis-card"></div>
+          <div class="sensitivity-layout">
+            <div>
+              <h3>Questions worth asking</h3>
+              <div id="question-list" class="question-list"></div>
+            </div>
+            <div id="experiment-panel" class="experiment-panel">
+              <div class="empty-experiment">
+                <p class="eyebrow">START WITH A QUESTION</p>
+                <h3>Do not tune a parameter before you know what it tests.</h3>
+                <p>Choose a question on the left. The site will expose only the controls needed to answer it.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-longrange" class="view">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">LONG-RANGE ASSESSMENT</p>
+              <h2>What must remain true for this strategy to keep working?</h2>
+            </div>
+          </div>
+          <div id="longrange-interpretation" class="longrange-grid"></div>
+          <details class="values-details" open>
+            <summary>Values table <span>audit the modeled numbers</span></summary>
+            <div class="table-wrap"><table id="values-table"></table></div>
+          </details>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>LONGRUN / LEVERAGE LAB</span>
+    <span>All simulations inherit the assumptions and limitations documented in the research repository.</span>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
