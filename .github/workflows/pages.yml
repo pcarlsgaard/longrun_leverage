@@ -48,6 +48,8 @@ jobs:
           test -s _site/data/site_guided_sensitivity.json
           test -s _site/data/leaps_frontier_monte_carlo.csv
           test -s _site/data/leaps_frontier_sensitivities.csv
+      - name: Validate browser JavaScript
+        run: node --check _site/app.js
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
