@@ -27,7 +27,8 @@
     </section>
 
     <nav class="analysis-nav" aria-label="Analysis modes">
-      <button class="nav-tab active" data-view="frontier">Frontier</button>
+      <button class="nav-tab active" data-view="compare">Compare</button>
+      <button class="nav-tab" data-view="frontier">LEAPS frontier</button>
       <button class="nav-tab" data-view="montecarlo">Monte Carlo</button>
       <button class="nav-tab" data-view="sensitivity">Sensitivity</button>
       <button class="nav-tab" data-view="longrange">Long-range assessment</button>
@@ -53,7 +54,41 @@
       </aside>
 
       <div class="analysis-area">
-        <section id="view-frontier" class="view active">
+        <section id="view-compare" class="view active">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">CROSS-STRATEGY COMPARISON</p>
+              <h2>Compare mechanisms in one frame.</h2>
+              <p class="compare-subcopy">Vanilla indexes, always-on leverage, SMA-managed leverage, stock/bond portfolios, and LEAPS can all live in the same comparison basket.</p>
+            </div>
+            <div class="axis-picker">
+              <label>X axis<select id="compare-x"></select></label>
+              <label>Y axis<select id="compare-y"></select></label>
+            </div>
+          </div>
+          <div class="compare-toolbar">
+            <div id="compare-presets" class="control-row"></div>
+            <button id="compare-reset" class="control-chip">Reset basket</button>
+          </div>
+          <div class="chart-card">
+            <div id="compare-chart" class="svg-chart" role="img" aria-label="Cross-strategy comparison chart"></div>
+            <div id="compare-legend" class="chart-legend"></div>
+          </div>
+          <div id="compare-insight" class="insight-card"></div>
+          <div class="compare-grid">
+            <div>
+              <h3>Strategy universe</h3>
+              <div id="compare-universe" class="compare-universe"></div>
+            </div>
+            <div>
+              <h3>Selected basket</h3>
+              <div class="table-wrap"><table id="compare-table"></table></div>
+            </div>
+          </div>
+          <div class="method-note">Historical comparison uses each strategy's committed reconstructed history. LEAPS points use the frontier historical simulation; SMA points use the corrected price-signal, LAG2/25-bp implementation where available. Use the Monte Carlo and Sensitivity tabs for model-specific uncertainty.</div>
+        </section>
+
+        <section id="view-frontier" class="view">
           <div class="section-heading">
             <div>
               <p class="eyebrow">RISK / GROWTH FRONTIER</p>
@@ -146,5 +181,6 @@
   </footer>
 
   <script src="app.js" defer></script>
+  <script src="compare.js" defer></script>
 </body>
 </html>

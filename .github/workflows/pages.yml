@@ -8,6 +8,9 @@ on:
       - 'reports/site_guided_sensitivity.json'
       - 'reports/leaps_frontier_monte_carlo.csv'
       - 'reports/leaps_frontier_sensitivities.csv'
+      - 'reports/price_signal_revision_summary.csv'
+      - 'reports/portfolio_metrics.csv'
+      - 'reports/leaps_frontier_historical.csv'
       - '.github/workflows/pages.yml'
   pull_request:
     paths:
@@ -41,6 +44,9 @@ jobs:
           cp reports/site_guided_sensitivity.json _site/data/
           cp reports/leaps_frontier_monte_carlo.csv _site/data/
           cp reports/leaps_frontier_sensitivities.csv _site/data/
+          cp reports/leaps_frontier_historical.csv _site/data/
+          cp reports/portfolio_metrics.csv _site/data/
+          cp reports/price_signal_revision_summary.csv _site/data/
           touch _site/.nojekyll
           test -s _site/index.html
           test -s _site/app.js
@@ -48,8 +54,13 @@ jobs:
           test -s _site/data/site_guided_sensitivity.json
           test -s _site/data/leaps_frontier_monte_carlo.csv
           test -s _site/data/leaps_frontier_sensitivities.csv
+          test -s _site/data/leaps_frontier_historical.csv
+          test -s _site/data/portfolio_metrics.csv
+          test -s _site/data/price_signal_revision_summary.csv
       - name: Validate browser JavaScript
-        run: node --check _site/app.js
+        run: |
+          node --check _site/app.js
+          node --check _site/compare.js
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
