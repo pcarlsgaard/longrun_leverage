@@ -20,6 +20,8 @@ The interface follows **Observe → Ask → Test → Explain → Compare**. It i
 
 `.github/workflows/pages.yml` validates and deploys `site/` on pushes to `main` that alter the site or its source datasets. The first deployment may require selecting **GitHub Actions** as the Pages publishing source in repository Settings → Pages. After that, relevant commits deploy automatically.
 
+If Pages is enabled after an earlier failed deployment, trigger a fresh full workflow run rather than rerunning only the failed deploy job; the Pages artifact must be uploaded in the same workflow attempt that performs the deployment.
+
 The expected project URL is:
 
 `https://pcarlsgaard.github.io/longrun_leverage/`
