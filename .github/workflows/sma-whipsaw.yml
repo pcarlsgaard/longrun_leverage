@@ -41,6 +41,7 @@ jobs:
           path: |
             reports/sma_whipsaw_grid.csv
             reports/sma_whipsaw_stress.csv
+            reports/sma_whipsaw_cohorts.csv
             reports/sma_whipsaw_results.md
             reports/sma_whipsaw_manifest.json
           retention-days: 90
