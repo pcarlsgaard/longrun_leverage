@@ -194,6 +194,16 @@ def _report(root: Path, grid: pd.DataFrame, stress: pd.DataFrame,
               "| Rule | Lag | CAGR | Δ CAGR pp | Max DD | Mean leverage | Switches | 5-session whipsaws | Wealth multiple |",
               "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     lines += [rowline(r) for _, r in user_length.sort_values("rule").iterrows()]
+    lines += ["", "## Paired UPRO cohort outcomes: SMA 200, LAG2, 25 bp", "",
+              "Monthly entry closes, exact calendar-anniversary exits; all variants",
+              "are compared with BASE on the same cohort starting dates.",
+              "| Rule | Horizon | Cohorts | Worst CAGR | Median CAGR | Share beating BASE | Median paired CAGR gap |",
+              "|---|---:|---:|---:|---:|---:|---:|"]
+    comparison = cohorts[(cohorts.fund == "UPRO") & (cohorts.lag == "LAG2")]
+    for _, r in comparison.sort_values(["horizon_years", "rule"]).iterrows():
+        lines += [f"| {r['rule']} | {int(r['horizon_years'])}y | {int(r['cohort_count'])} | "
+                  f"{pct(r['worst_cagr'])} | {pct(r['median_cagr'])} | "
+                  f"{pct(r['fraction_beating_base'])} | {r['median_paired_delta_pp']:+.2f} pp |"]
     lines += ["", "## Raw false breaks (S&P signal)", "",
               "| SMA | Recovered within 1 close | 2 closes | 5 closes | 10 closes |",
               "|---|---:|---:|---:|---:|"]
@@ -287,9 +297,28 @@ def run(root: Path) -> None:
     stress = pd.DataFrame(stress)
     stress.pipe(stable_floats).to_csv(reports / "sma_whipsaw_stress.csv",
                                       index=False, float_format=FLOAT_FORMAT)
-    _report(root, grid, stress, count)
+    cohort_rows = []
+    for (fund, rule, lag), r in returns.items():
+        base = returns[(fund, "BASE", lag)]
+        for years in (20, 30):
+            values = cohort_cagrs(nav_path(r, calendar), years)
+            control = cohort_cagrs(nav_path(base, calendar), years)
+            if len(values) != len(control):
+                raise ValueError("Cohort calendars differ")
+            diffs = values - control
+            cohort_rows.append(dict(fund=fund, sma_days=PRIMARY_LENGTH,
+                rule=rule, lag=f"LAG{lag}", switch_cost_bps=PRIMARY_COST,
+                horizon_years=years, cohort_count=len(values),
+                worst_cagr=float(values.min()) if len(values) else np.nan,
+                median_cagr=float(np.median(values)) if len(values) else np.nan,
+                fraction_beating_base=float((diffs > 0).mean()) if len(values) else np.nan,
+                median_paired_delta_pp=float(100*np.median(diffs)) if len(values) else np.nan))
+    cohorts = pd.DataFrame(cohort_rows)
+    cohorts.pipe(stable_floats).to_csv(reports / "sma_whipsaw_cohorts.csv",
+                                      index=False, float_format=FLOAT_FORMAT)
+    _report(root, grid, stress, cohorts, count)
     output_files = ["sma_whipsaw_grid.csv", "sma_whipsaw_stress.csv",
-                    "sma_whipsaw_results.md"]
+                    "sma_whipsaw_cohorts.csv", "sma_whipsaw_results.md"]
     manifest = dict(as_of=config["as_of"], primary_sma=PRIMARY_LENGTH,
         lengths=LENGTHS, lags=LAGS, costs_bps=COSTS, spread_bps=SPREAD_BPS,
         input_sha256={
