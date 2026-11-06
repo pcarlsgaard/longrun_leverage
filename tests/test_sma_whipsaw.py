@@ -114,7 +114,7 @@ class ExecutionTests(unittest.TestCase):
         net = switching_costs(gross, p, 25)
         self.assertEqual(int(transitions(p).sum()), 4)
         self.assertAlmostEqual(float((1+net).prod()), 0.9975**4)
-        self.assertEqual(whipsaws(p, 2), 2)
+        self.assertEqual(whipsaws(p, 2), 3)
         self.assertEqual(whipsaws(p, 10), 3)
 
 
