@@ -680,3 +680,31 @@ Collected rather than scattered, because they bound every result above:
 
 A full methodological and code review of the experiments is in
 [docs/experiment_review.md](docs/experiment_review.md).
+
+## Confirming SMA breaks and avoiding whipsaws
+
+`python -m letf.sma_whipsaw` (or `longrun-leverage-whipsaw`) executes a focused,
+offline **falsification**, preserving every frozen invested-return series and the
+canonical **price-only** SMA signal. It compares the original immediate
+one-close policy with (a) two bearish closes before reducing leverage,
+(b) a 0.5%-below-SMA exit threshold, and (c) cancellation of an unfilled
+sell if price recovers before the delayed execution. Costs apply to **both**
+directions of every executed portfolio switch.
+
+Primary: 200-day SMA, 50-bp financing spread, 25-bp switching cost, UPRO
+rotating into the S&P 500 1x. Additional prespecified diagnostics include
+a **185-day** SMA (not a fitted setting), LAG1/LAG2/LAG3 execution,
+0/10/25/50-bp costs, SSO, and TQQQ governed by the broad S&P signal.
+LAG3 is an experimental two-*additional*-session delay, beyond LAG1.
+Confirmation is asymmetrical (two bearish closes, one bullish close);
+the buffer is exit-side only. The execution-cancellation rule is meaningful
+only for LAG2/LAG3 and never undoes an already-executed sale.
+
+Outputs: `reports/sma_whipsaw_{grid,stress,cohorts}.csv`,
+`reports/sma_whipsaw_results.md`, and `reports/sma_whipsaw_manifest.json`.
+The [SMA whipsaw workflow](.github/workflows/sma-whipsaw.yml) runs targeted
+tests and publishes generated files as a downloadable Actions artifact; this
+study does **not** overwrite earlier committed reports. It uses the frozen
+archive ending 2026-09-02; it does not claim to backtest the November 2026
+selloff. Read `reports/signal_null_model_results.md` before interpreting
+any improvement as forecasting skill.
