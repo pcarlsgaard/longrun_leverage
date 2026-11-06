@@ -42,7 +42,7 @@ def raw_states(price: pd.Series, calendar: pd.DatetimeIndex, length: int, rule: 
     if length < 2:
         raise ValueError("Invalid SMA length")
     canonical = level_position(price, calendar, length, lag=1)
-    price = price.loc[calendar[0]:calendar[-1]]
+    price = price.loc[calendar[0]:calendar[-1]].reindex(calendar)
     sma = price.rolling(length, min_periods=length).mean()
     base = (price > sma).astype(float).where(sma.notna()).reindex(calendar)
     pd.testing.assert_series_equal(base.shift(1), canonical, check_names=False)
