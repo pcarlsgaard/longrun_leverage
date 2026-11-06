@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from .analysis import CASH, REGIMES, load_inputs
+from .cohorts import cohort_cagrs, nav_path
 from .falsification import evaluate, load_price_signals
 from .model import matched
 from .provenance import FLOAT_FORMAT, sha, stable_floats
@@ -144,13 +145,14 @@ def event_rows(r: pd.Series, p: pd.Series, baseline_r: pd.Series,
     return result
 
 
-def _report(root: Path, grid: pd.DataFrame, stress: pd.DataFrame, raw_count: dict) -> None:
+def _report(root: Path, grid: pd.DataFrame, stress: pd.DataFrame,
+            cohorts: pd.DataFrame, raw_count: dict) -> None:
     """Generate interpretive markdown from computed results; never hand-fill CAGR."""
     def pct(v): return f"{100 * v:.2f}%"
     def rowline(r):
         return (f"| {r['rule']} | {r['lag']} | {pct(r['cagr'])} | "
                 f"{r['cagr_delta_pp']:+.2f} | {pct(r['max_drawdown'])} | "
-                f"{int(r['switch_count'])} | {int(r['whipsaw_5'])} | "
+                f"{1+2*r['leveraged_fraction']:.2f}x | {int(r['switch_count'])} | {int(r['whipsaw_5'])} | "
                 f"{r['terminal_multiple']:.1f} |")
     primary = grid[(grid.fund == "UPRO") & (grid.sma_days == PRIMARY_LENGTH) &
                    (grid.switch_cost_bps == PRIMARY_COST)].sort_values(["rule", "lag"])
@@ -184,13 +186,13 @@ def _report(root: Path, grid: pd.DataFrame, stress: pd.DataFrame, raw_count: dic
         "SMA=200 is primary. SMA=185 is the user-requested diagnostic, **not**",
         "a retrospectively optimized moving-average length.", "",
         "## Primary comparison: UPRO, SMA 200, 25 bp per switch", "",
-        "| Rule | Lag | CAGR | Δ CAGR pp vs BASE at same lag | Max DD | Switches | 5-session whipsaws | Wealth multiple |",
+        "| Rule | Lag | CAGR | Δ CAGR pp vs BASE at same lag | Max DD | Mean leverage | Switches | 5-session whipsaws | Wealth multiple |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     lines += [rowline(r) for _, r in primary.iterrows()]
     lines += ["", "## User-length diagnostic: UPRO, SMA 185, LAG2, 25 bp", "",
-              "| Rule | Lag | CAGR | Δ CAGR pp | Max DD | Switches | 5-session whipsaws | Wealth multiple |",
-              "|---|---|---:|---:|---:|---:|---:|---:|"]
+              "| Rule | Lag | CAGR | Δ CAGR pp | Max DD | Mean leverage | Switches | 5-session whipsaws | Wealth multiple |",
+              "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     lines += [rowline(r) for _, r in user_length.sort_values("rule").iterrows()]
     lines += ["", "## Raw false breaks (S&P signal)", "",
               "| SMA | Recovered within 1 close | 2 closes | 5 closes | 10 closes |",
