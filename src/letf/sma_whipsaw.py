@@ -187,7 +187,7 @@ def _report(root: Path, grid: pd.DataFrame, stress: pd.DataFrame,
         "a retrospectively optimized moving-average length.", "",
         "## Primary comparison: UPRO, SMA 200, 25 bp per switch", "",
         "| Rule | Lag | CAGR | Δ CAGR pp vs BASE at same lag | Max DD | Mean leverage | Switches | 5-session whipsaws | Wealth multiple |",
-        "|---|---|---:|---:|---:|---:|---:|---:|",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     lines += [rowline(r) for _, r in primary.iterrows()]
     lines += ["", "## User-length diagnostic: UPRO, SMA 185, LAG2, 25 bp", "",
