@@ -700,7 +700,7 @@ Confirmation is asymmetrical (two bearish closes, one bullish close);
 the buffer is exit-side only. The execution-cancellation rule is meaningful
 only for LAG2/LAG3 and never undoes an already-executed sale.
 
-Outputs: `reports/sma_whipsaw_{grid,stress}.csv`,
+Outputs: `reports/sma_whipsaw_{grid,stress,cohorts}.csv`,
 `reports/sma_whipsaw_results.md`, and `reports/sma_whipsaw_manifest.json`.
 The [SMA whipsaw workflow](.github/workflows/sma-whipsaw.yml) runs targeted
 tests and publishes generated files as a downloadable Actions artifact; this
