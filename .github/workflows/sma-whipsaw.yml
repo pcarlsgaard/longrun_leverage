@@ -1,0 +1,46 @@
+name: SMA whipsaw robustness
+
+on:
+  push:
+    paths:
+      - 'src/letf/sma_whipsaw.py'
+      - 'tests/test_sma_whipsaw.py'
+      - 'pyproject.toml'
+      - '.github/workflows/sma-whipsaw.yml'
+  pull_request:
+    paths:
+      - 'src/letf/sma_whipsaw.py'
+      - 'tests/test_sma_whipsaw.py'
+      - 'pyproject.toml'
+      - '.github/workflows/sma-whipsaw.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install research code
+        run: pip install -e .
+      - name: Verify causal signals and execution
+        run: python -m unittest discover -s tests -p 'test_sma_whipsaw.py' -v
+      - name: Reproduce frozen-input whipsaw study
+        run: python -m letf.sma_whipsaw
+      - name: Show compact generated report
+        run: cat reports/sma_whipsaw_results.md
+      - name: Archive numerical results and input hashes
+        uses: actions/upload-artifact@v4
+        with:
+          name: sma-whipsaw-robustness
+          path: |
+            reports/sma_whipsaw_grid.csv
+            reports/sma_whipsaw_stress.csv
+            reports/sma_whipsaw_results.md
+            reports/sma_whipsaw_manifest.json
+          retention-days: 90
