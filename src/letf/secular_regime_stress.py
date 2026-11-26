@@ -196,13 +196,14 @@ def option_segment(calendar, spot, q, rate, iv, safe, key, begin, end,
     return result
 
 def adaptive_options(calendar, spot, q, rate, iv, total, cash, state,
-                     red_cash=False, cost=.0025):
+                     red_cash=False, cost=.0025, safe=None, amber='80_25'):
     """Switch at confirmed state changes, sell actual marked call, re-open.
 
     Never splice the daily returns of a continuously running rival portfolio.
     The existing options engine prices every actual holding segment.
     """
     n = len(calendar)
+    safe = cash if safe is None else safe
     starts = np.r_[0, np.flatnonzero(state[1:-1] != state[:-2])+1]
     result = np.ones(n)
     for begin, end in zip(starts, np.r_[starts[1:], n-1]):
@@ -210,13 +211,40 @@ def adaptive_options(calendar, spot, q, rate, iv, total, cash, state,
         if state[begin] == 0:
             segment = nav((cash if red_cash else total)[begin:end])
         else:
-            key = '80_25' if state[begin] == 1 else '90_40'
-            segment = option_segment(calendar, spot, q, rate, iv, cash, key,
+            key = amber if state[begin] == 1 else '90_40'
+            segment = option_segment(calendar, spot, q, rate, iv, safe, key,
                                      begin, end, liquidate=end < n-1)
         if begin:
             segment[1:] *= 1-cost
         result[begin+1:end+1] = result[begin]*segment[1:]
     return result
+
+def duration_weights(sample, calendar, entry, lag=2):
+    """Quarterly duration risk gate, using realized 126-session co-movement.
+
+    Long bonds qualify for half of the reserve only if correlation with
+    equities is negative AND trailing return exceeds cash. Not a structural
+    forecast; tests whether duration should be managed independently.
+    Close t observations affect returns ending t+lag or later.
+    """
+    b = pd.Series(np.r_[0., np.log1p(sample[:, TREASURY_R])], index=calendar)
+    e = pd.Series(np.r_[0., np.log1p(sample[:, EQUITY_TR])], index=calendar)
+    c = pd.Series(np.r_[0., np.log1p(sample[:, CASH_R])], index=calendar)
+    eligible = ((b.rolling(126).corr(e) < 0) &
+                ((b-c).rolling(126).sum() > 0)).to_numpy()
+    quarter = calendar.to_period('Q')
+    decision = np.flatnonzero(quarter[1:] != quarter[:-1])
+    weights = np.zeros(len(calendar))
+    for t in decision:
+        if t >= entry and t+lag-1 < len(calendar):
+            weights[t+lag-1:] = .5*eligible[t]
+    return weights[entry:]
+
+def mix_reserve(cash, bond, close_weights, cost=.0005):
+    """Idealized daily target-weight reserve, with charge on weight changes."""
+    w = close_weights[:-1]
+    turnover = np.abs(np.diff(w, prepend=w[0]))
+    return (1 + (1-w)*cash + w*bond)*(1-cost*turnover)-1
 
 def metrics(w, years):
     peak = np.maximum.accumulate(w)
@@ -230,7 +258,11 @@ def run_path(sample, horizon, config, truth, transition=None):
     cash = sample[entry:, CASH_R]
     bond = sample[entry:, TREASURY_R]
     funding = sample[entry:, FINANCING]
-    out = {'TBILL': nav(cash), 'LONG_TREASURY': nav(bond)}
+    duration = duration_weights(sample, horizon.calendar, entry)
+    mixed = mix_reserve(cash,bond,np.full(len(cal),.5))
+    dynamic = mix_reserve(cash,bond,duration)
+    out = {'TBILL': nav(cash), 'LONG_TREASURY': nav(bond),
+           'RESERVE_50_50': nav(mixed), 'RESERVE_DURATION_GATE': nav(dynamic)}
     states = {}
     for method in ('combined', 'rate_vol'):
         for confirm in (1, 2, 4):
@@ -264,7 +296,8 @@ def run_path(sample, horizon, config, truth, transition=None):
         out[prefix+'_SMA_3_1'] = nav((1+ret)*(1-.0025*switch)-1)
         out[prefix+'_SMA_3_BILLS'] = nav((1+np.where(lev==3,ret,cash))*(1-.0025*switch)-1)
         for key in STRUCTURES:
-            for sleeve, safe in (('BILLS', cash), ('LONG', bond)):
+            for sleeve, safe in (('BILLS', cash), ('LONG', bond),
+                                 ('MIXED', mixed), ('DURATION_GATE', dynamic)):
                 out[f'{prefix}_{key}_{sleeve}'] = option_segment(
                     cal, spot, q, rate, iv, safe, key, 0, len(cal)-1)
         for name, state in states.items():
@@ -272,6 +305,18 @@ def run_path(sample, horizon, config, truth, transition=None):
                 total, funding, days, state, expense)
             out[f'{prefix}_ADAPT_CALL_{name}'] = adaptive_options(
                 cal, spot, q, rate, iv, total, cash, state)
+        if prefix == 'NDX':
+            for label, safe in (('MIXED',mixed),('DURATION_GATE',dynamic),('LONG',bond)):
+                out[f'{prefix}_ADAPT_CALL_COMBINED_Q2_{label}'] = adaptive_options(
+                    cal, spot, q, rate, iv, total, cash, states['COMBINED_Q2'],
+                    safe=safe, amber='85_30')
+            out['NDX_ADAPT_CALL_COMBINED_Q2_BILLS_85_30'] = adaptive_options(
+                cal, spot, q, rate, iv, total, cash, states['COMBINED_Q2'], amber='85_30')
+            # Additional NDX-specific signal versus the common SPX signal.
+            ndx_state = quarterly_states(np.r_[1.,np.cumprod(1+sample[:,NDX_PRICE])],
+                sample[:,NDX_TOTAL],sample[:,CASH_R],horizon.calendar,entry,2,'combined')
+            out['NDX_ADAPT_CALL_OWN_Q2_DURATION_GATE'] = adaptive_options(
+                cal,spot,q,rate,iv,total,cash,ndx_state,safe=dynamic,amber='85_30')
         out[f'{prefix}_ADAPT_CALL_COMBINED_Q2_RED_CASH'] = adaptive_options(
             cal, spot, q, rate, iv, total, cash, states['COMBINED_Q2'], red_cash=True)
     years = horizon.elapsed_days / 365.25
@@ -348,6 +393,8 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
         'SPX_1X':'spx_cagr','TBILL':'bill_cagr'}), on=['regime','path'])
     frame['below_spx'] = frame.real_cagr < frame.spx_cagr
     frame['below_bills'] = frame.real_cagr < frame.bill_cagr
+    frame = frame.join(base[['NDX_1X']].rename(columns={'NDX_1X':'ndx_cagr'}),on=['regime','path'])
+    frame['below_ndx'] = frame.real_cagr < frame.ndx_cagr
     frame['dd60'] = frame.drawdown < -.60
     frame['dd50'] = frame.drawdown < -.50
     frame['dd75'] = frame.drawdown < -.75
@@ -357,6 +404,7 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
         median_drawdown=('drawdown','median'),
         p5_drawdown=('drawdown',lambda x: x.quantile(.05)),
         p_below_spx=('below_spx','mean'), p_below_bills=('below_bills','mean'),
+        p_below_ndx=('below_ndx','mean'),
         p_dd50=('dd50','mean'), p_dd60=('dd60','mean'), p_dd75=('dd75','mean'),
         median_real_wealth=('real_wealth','median')).reset_index()
     # Oracle is diagnostic, not a feasible frontier member.
@@ -392,6 +440,7 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
         green_fraction=('green_fraction','mean'),
         red_fraction=('red_fraction','mean')).reset_index().to_csv(
             out/'detection_summary.csv', index=False)
+    summary[summary.strategy.str.startswith('NDX') & feasible].to_csv(out/'nasdaq_decision.csv',index=False)
     summary[feasible].groupby('strategy').agg(
         worst_regime_median_cagr=('median_cagr','min'),
         worst_regime_p5_cagr=('p5_cagr','min'),
