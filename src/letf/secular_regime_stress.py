@@ -27,7 +27,8 @@ from .provenance import sha, source_hashes
 SEED = 20261126
 INFLATION = .025
 SPREAD = .005
-STRUCTURES = {'80_25': (.80, .25), '90_40': (.90, .40)}
+STRUCTURES = {'80_25': (.80, .25), '85_30': (.85, .30),
+              '90_35': (.90, .35), '90_40': (.90, .40)}
 # Explicit assumptions, not estimated forecasts. All returns are real
 # geometric targets; relative Nasdaq growth is a log-return increment.
 @dataclass(frozen=True)
@@ -43,11 +44,12 @@ class Regime:
 FAVORABLE = Regime('favorable', .08, .01, .035, .16, .025, -.25)
 NORMAL = Regime('normalization', .055, .02, .02, .17, 0., -.10)
 SLOW = Regime('slowdown', .035, .02, .015, .18, 0., .10)
+STAGNATION = Regime('secular_stagnation', .02, .005, .01, .16, 0., .10)
 FISCAL = Regime('fiscal_stress', .03, .03, -.01, .22, -.01, .40)
 AI = Regime('ai_boom', .09, .02, .025, .18, .025, -.10)
 AI_EXPENSIVE = Regime('ai_expensive_capital', .09, .04, .02, .22, 0., .20)
 BOOM = Regime('exceptional_productivity', .12, .03, .03, .20, .025, -.10)
-REGIMES = (FAVORABLE, NORMAL, SLOW, FISCAL, AI, AI_EXPENSIVE, BOOM)
+REGIMES = (FAVORABLE, NORMAL, SLOW, STAGNATION, FISCAL, AI, AI_EXPENSIVE, BOOM)
 # The transition shock is a separate price-level loss, not a permanent
 # reduction in the post-transition return target. Its duration is one year.
 TRANSITIONS = (
@@ -171,16 +173,17 @@ def adaptive_equity(total, funding, days, state, expense, cost=.0025):
     switches = np.r_[False, state[1:-1] != state[:-2]]
     return nav((1 + ret)*(1 - cost*switches) - 1)
 
-@lru_cache(maxsize=4096)
-def schedule(calendar, key, begin):
+@lru_cache(maxsize=512)
+def schedule(calendar_bytes, key, begin):
     # Build on the full remaining calendar, not the future switch endpoint.
     # A switch cannot retroactively change the contract initially purchased.
+    calendar = pd.DatetimeIndex(np.frombuffer(calendar_bytes, dtype='datetime64[ns]'))
     return roll_schedule(calendar[begin:], leaps_rule(*STRUCTURES[key], 1.))
 
 def option_segment(calendar, spot, q, rate, iv, safe, key, begin, end,
                    liquidate=False):
     from dataclasses import replace
-    full = schedule(calendar, key, begin)
+    full = schedule(calendar.asi8.tobytes(), key, begin)
     use = full.starts < end-begin
     s = replace(full, starts=full.starts[use], expiry_days=full.expiry_days[use])
     sl = slice(begin, end+1)
@@ -259,6 +262,7 @@ def run_path(sample, horizon, config, truth, transition=None):
         ret = leveraged(total, funding, lev, days, expense)
         switch = np.r_[False, lev[1:] != lev[:-1]]
         out[prefix+'_SMA_3_1'] = nav((1+ret)*(1-.0025*switch)-1)
+        out[prefix+'_SMA_3_BILLS'] = nav((1+np.where(lev==3,ret,cash))*(1-.0025*switch)-1)
         for key in STRUCTURES:
             for sleeve, safe in (('BILLS', cash), ('LONG', bond)):
                 out[f'{prefix}_{key}_{sleeve}'] = option_segment(
@@ -276,12 +280,17 @@ def run_path(sample, horizon, config, truth, transition=None):
     for name, state in states.items():
         switches = int(np.count_nonzero(np.diff(state)))
         delay = np.nan
-        if transition is not None:
+        already = np.nan
+        changed = transition is not None and truth[transition-1] != truth[transition]
+        if changed:
+            already = float(state[transition-1] == truth[transition])
             hits = np.flatnonzero(state[transition:] == truth[transition])
-            if len(hits):
+            if len(hits) and not already:
                 delay = hits[0]/63.
         detection[name] = (np.mean(state == truth), switches, delay,
-                           np.mean(state == 2), np.mean(state == 0))
+                           np.mean(state == 2), np.mean(state == 0),
+                           np.mean(state > truth), np.mean(state < truth),
+                           already, float(changed))
     return rows, detection
 
 def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
@@ -295,6 +304,8 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
     t = horizon.closes.searchsorted(horizon.closes[0]+pd.DateOffset(years=5))
     cases = [(r.name, r, None, 0.) for r in REGIMES] + list(TRANSITIONS)
     cases += [('historical_bootstrap', None, None, 0.)]
+    if paths < 1 or block < 1 or t >= len(horizon.closes):
+        raise ValueError('Invalid path count, block or transition date')
     draws = [block_draw(np.random.default_rng(seed+i), len(pool), n, block)
              for i in range(paths)]
     rows, detectors = [], []
@@ -324,10 +335,12 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
                 rows.append(dict(regime=label, path=i, strategy=name,
                                  real_cagr=cagr, drawdown=dd, real_wealth=wealth))
             if before is not None:
-                for name, (accuracy, switches, delay, green, red) in det.items():
+                for name, (accuracy, switches, delay, green, red, over, under, already, changed) in det.items():
                     detectors.append(dict(regime=label, path=i, signal=name,
                         state_match=accuracy, switches=switches, first_match_quarters=delay,
-                        green_fraction=green, red_fraction=red))
+                        green_fraction=green, red_fraction=red, over_risk_fraction=over,
+                        under_risk_fraction=under, already_at_new_state=already,
+                        true_state_changed=changed))
         print(f'{label}: {paths} paired paths', flush=True)
     frame = pd.DataFrame(rows)
     base = frame.pivot(index=['regime','path'], columns='strategy', values='real_cagr')
@@ -364,7 +377,28 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
     out.mkdir(parents=True, exist_ok=True)
     summary.to_csv(out/'summary.csv', index=False)
     frame.to_csv(out/'paths.csv', index=False)
-    pd.DataFrame(detectors).to_csv(out/'detection.csv', index=False)
+    detection = pd.DataFrame(detectors)
+    detection.to_csv(out/'detection.csv', index=False)
+    detection['missed'] = np.where(
+        (detection.true_state_changed == 1) & (detection.already_at_new_state == 0),
+        detection.first_match_quarters.isna().astype(float), np.nan)
+    detection.groupby(['regime','signal']).agg(
+        state_match=('state_match','mean'), mean_switches=('switches','mean'),
+        over_risk_fraction=('over_risk_fraction','mean'),
+        under_risk_fraction=('under_risk_fraction','mean'),
+        median_detection_quarters=('first_match_quarters','median'),
+        already_at_new_state=('already_at_new_state','mean'),
+        missed_shift_fraction=('missed','mean'),
+        green_fraction=('green_fraction','mean'),
+        red_fraction=('red_fraction','mean')).reset_index().to_csv(
+            out/'detection_summary.csv', index=False)
+    summary[feasible].groupby('strategy').agg(
+        worst_regime_median_cagr=('median_cagr','min'),
+        worst_regime_p5_cagr=('p5_cagr','min'),
+        worst_regime_p_dd60=('p_dd60','max'),
+        max_median_regret=('median_regret','max'),
+        pareto_fraction=('pareto','mean')).reset_index().to_csv(
+            out/'cross_regime.csv', index=False)
     (out/'manifest.json').write_text(json.dumps(dict(
         paths=paths, years=years, block=block, seed=seed,
         inflation=INFLATION, regimes=[r.__dict__ for r in REGIMES],
