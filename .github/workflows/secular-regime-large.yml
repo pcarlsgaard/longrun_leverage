@@ -1,0 +1,62 @@
+name: Secular regime large paired experiment
+on:
+  push:
+    branches: ['experiment/secular-regime-adaptation']
+    paths: ['.github/workflows/secular-regime-large.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - run: |
+          python -m letf.secular_regime_stress --paths 128 --years 20 --seed "$((20261126 + ${{ matrix.shard }} * 128))" --output shard
+      - uses: actions/upload-artifact@v4
+        with:
+          name: regime-shard-${{ matrix.shard }}
+          path: shard/
+          if-no-files-found: error
+  aggregate:
+    needs: shard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: regime-shard-*
+          path: shards
+      - run: python -m letf.combine_secular_shards shards combined --expected 16
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secular-regime-2048-paths
+          path: combined/
+          if-no-files-found: error
+      - name: Nasdaq decision table
+        run: |
+          python - <<'PY'
+          import os
+          import pandas as pd
+          d=pd.read_csv('combined/nasdaq_decision.csv')
+          keep=['NDX_1X','NDX_80_25_MIXED','NDX_85_30_MIXED','NDX_90_35_MIXED','NDX_90_40_MIXED','NDX_90_40_LONG','NDX_85_30_BILLS','NDX_ADAPT_CALL_COMBINED_Q2_DURATION_GATE']
+          cols=['regime','strategy','median_cagr','p5_cagr','p_dd60','p_below_ndx']
+          result=d[d.strategy.isin(keep)][cols].to_string(index=False)
+          print(result)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## 2048 paired paths per regime\n\n'+'\n```\n'+result+'\n```\n')
+          PY
