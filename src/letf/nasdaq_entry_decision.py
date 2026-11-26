@@ -13,7 +13,7 @@ from scipy.optimize import brentq
 from .options import black_scholes_call, call_delta
 
 def evaluate(row, bill_yield, long_yield, duration=16., long_weight=0.,
-             horizon=1., exit_spread=.01):
+             horizon=1., exit_spread=.01, target_delta=None):
     spot,strike,ask,years,rate,q,budget = (
         float(row[k]) for k in ('spot','strike','ask','years','rate','dividend','budget'))
     if not (spot>0 and strike>0 and ask>0 and years>horizon>0 and
@@ -25,6 +25,11 @@ def evaluate(row, bill_yield, long_yield, duration=16., long_weight=0.,
         return float(black_scholes_call(s,strike,r,q,v,t))
     iv=brentq(lambda v:price(spot,rate,v,years)-ask, .0001, 3.)
     delta=float(call_delta(spot,strike,rate,q,iv,years))
+    elasticity=delta*spot/ask
+    if target_delta is not None:
+        budget=float(target_delta)/elasticity
+        if not np.isfinite(budget) or not 0<budget<1:
+            raise ValueError('Target delta requires invalid premium budget')
     contracts=budget/ask  # normalized portfolio NAV=1; fractional contracts
     rows=[]
     for move in (-.50,-.35,-.20,-.10,0.,.10,.20,.35,.50):
@@ -37,7 +42,9 @@ def evaluate(row, bill_yield, long_yield, duration=16., long_weight=0.,
                 mark=price(spot*(1+move),rate+dy,max(.01,iv+dv),years-horizon)
                 wealth=contracts*mark*(1-exit_spread)+(1-budget)*safe
                 rows.append(dict(name=row['name'],moneyness=strike/spot,budget=budget,
-                    entry_iv=iv,entry_delta_exposure=contracts*delta*spot,
+                    entry_iv=iv,entry_call_delta=delta,entry_elasticity=elasticity,
+                    entry_delta_exposure=contracts*delta*spot,
+                    premium_per_contract=ask*100,call_expiry_break_even=strike+ask,
                     long_weight=long_weight,equity_price_return=move,
                     yield_shock=dy,iv_shock=dv,portfolio_return=wealth-1,
                     option_return=mark*(1-exit_spread)/ask-1,
@@ -52,10 +59,12 @@ def main():
     p.add_argument('--long-yield',type=float,required=True)
     p.add_argument('--duration',type=float,default=16.)
     p.add_argument('--horizon',type=float,default=1.)
+    p.add_argument('--target-delta',type=float,default=None,
+                   help='Match initial portfolio equity delta across strikes; default uses input budget')
     p.add_argument('--output',type=Path,required=True)
     a=p.parse_args()
     quotes=pd.read_csv(a.quotes)
-    out=pd.concat([evaluate(row,a.bill_yield,a.long_yield,a.duration,w,a.horizon)
+    out=pd.concat([evaluate(row,a.bill_yield,a.long_yield,a.duration,w,a.horizon,target_delta=a.target_delta)
                    for _,row in quotes.iterrows() for w in (0.,.5,1.)],ignore_index=True)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     out.to_csv(a.output,index=False)
