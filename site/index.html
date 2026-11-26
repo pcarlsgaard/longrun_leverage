@@ -29,6 +29,7 @@
     <nav class="analysis-nav" aria-label="Analysis modes">
       <button class="nav-tab active" data-view="compare">Compare</button>
       <button class="nav-tab" data-view="frontier">LEAPS frontier</button>
+      <button class="nav-tab" data-view="families">Family frontiers</button>
       <button class="nav-tab" data-view="montecarlo">Monte Carlo</button>
       <button class="nav-tab" data-view="sensitivity">Sensitivity</button>
       <button class="nav-tab" data-view="longrange">Long-range assessment</button>
@@ -86,6 +87,10 @@
             </div>
           </div>
           <div class="method-note">Historical comparison uses each strategy's committed reconstructed history. LEAPS points use the frontier historical simulation; SMA points use the corrected price-signal, LAG2/25-bp implementation where available. Use the Monte Carlo and Sensitivity tabs for model-specific uncertainty.</div>
+        </section>
+
+        <section id="view-families" class="view">
+          <iframe src="family-frontiers.html" title="Historical and simulated strategy family frontiers" style="width:100%;min-height:1600px;border:0" loading="lazy"></iframe>
         </section>
 
         <section id="view-frontier" class="view">
