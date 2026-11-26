@@ -7,6 +7,7 @@ import pandas as pd
 from letf.secular_regime_stress import (
     transform, nominal_log, SLOW, FAVORABLE, true_state, quarterly_states,
     adaptive_equity, adaptive_options, option_segment, run_path, nav, metrics,
+    duration_weights, mix_reserve,
 )
 from letf.leaps_robustness import (
     PRICE, EQUITY_TR, CASH_R, TREASURY_R, WARMUP_SESSIONS, YIELD,
@@ -103,6 +104,19 @@ class SecularStressTests(unittest.TestCase):
         np.testing.assert_allclose(switched[:251],first)
         self.assertAlmostEqual(switched[251],first[-1]*(1+total[250])*.9975)
 
+    def test_duration_gate_causal(self):
+        calendar = pd.bdate_range('2000-01-03', periods=1100)
+        p = synthetic_pool(len(calendar)-1)
+        e = WARMUP_SESSIONS
+        cut = 850
+        future = p.copy()
+        future[cut:, TREASURY_R] = future[cut:, EQUITY_TR]
+        a, b = (duration_weights(x,calendar,e) for x in (p,future))
+        np.testing.assert_array_equal(a[:cut-e+1],b[:cut-e+1])
+        self.assertTrue(np.isin(a,[0,.5]).all())
+        np.testing.assert_allclose(mix_reserve(np.array([.01,.01]),
+                np.array([.03,.03]),np.array([.5,.5,.5])),[.02,.02])
+
     def test_path_smoke(self):
         e = WARMUP_SESSIONS
         calendar = pd.bdate_range('2000-01-03', periods=e+340)
@@ -117,6 +131,8 @@ class SecularStressTests(unittest.TestCase):
         out, detection = run_path(transform(pool,pool,SLOW),horizon,cfg,truth)
         self.assertIn('NDX_ADAPT_CALL_COMBINED_Q2',out)
         self.assertIn('SPX_90_40_LONG',out)
+        self.assertIn('NDX_90_40_MIXED',out)
+        self.assertIn('NDX_ADAPT_CALL_OWN_Q2_DURATION_GATE',out)
         self.assertIn('ORACLE',detection)
         self.assertTrue(np.isfinite(list(out.values())).all())
 
