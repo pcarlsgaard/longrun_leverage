@@ -1,0 +1,73 @@
+name: Nasdaq convexity frontier screen
+on:
+  push:
+    branches: ['experiment/secular-regime-adaptation']
+    paths: ['.github/workflows/convexity-frontier.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shard:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0,1,2,3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - run: python -m unittest discover -s tests -p test_convexity_frontier.py -v
+      - run: python -m letf.convexity_frontier --paths 32 --seed "$((20261126 + ${{ matrix.shard }} * 32))" --output results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: convexity-shard-${{ matrix.shard }}
+          path: results/paths.csv
+          if-no-files-found: error
+  aggregate:
+    needs: shard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: convexity-shard-*
+          path: shards
+      - run: |
+          python - <<'PY'
+          import pandas as pd
+          from pathlib import Path
+          from letf.convexity_frontier import summarize
+          files=sorted(Path('shards').rglob('paths.csv'))
+          assert len(files)==4
+          d=pd.concat([pd.read_csv(f) for f in files],ignore_index=True)
+          assert not d.duplicated(['case','pricing','strategy','path']).any()
+          assert (d.groupby(['case','pricing','strategy']).size()==128).all()
+          assert len(d.groupby(['case','pricing','strategy']))==5*4*170
+          out=Path('combined')
+          out.mkdir()
+          d.to_csv(out/'paths.csv',index=False)
+          s=summarize(d,out)
+          # Prespecified slice rather than a selection of whichever wins.
+          keep=['NDX_1X','L0.90_U0.00_F0.00_budget40_mixed',
+                'L0.90_U1.35_F0.50_budget40_mixed',
+                'L0.90_U1.35_F1.00_budget40_mixed',
+                'L0.90_U1.50_F1.00_budget40_mixed',
+                'L0.90_U0.00_F0.00_delta100_mixed',
+                'L0.90_U1.35_F0.50_delta100_mixed',
+                'L0.90_U1.35_F1.00_delta100_mixed']
+          print(s[s.strategy.isin(keep)].to_string(index=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: convexity-frontier-128-paired
+          path: combined/
+          if-no-files-found: error
