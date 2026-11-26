@@ -22,7 +22,7 @@ from .leaps_frontier import frontier_pool, NDX_PRICE, NDX_TOTAL, NDX_YIELD
 from .nasdaq_leaps import underlying_inputs
 from .options import roll_schedule, simulate_leaps_arrays
 from .treasury_leverage import FINANCING
-from .provenance import sha, source_hashes
+from .provenance import sha
 
 SEED = 20261126
 INFLATION = .025
@@ -119,7 +119,7 @@ def quarterly_states(price, total, cash, calendar, entry,
 
     Quarterly close t observed, execution close t+lag-1, new risk affects
     return t+lag. Two consecutive quarterly recommendations by default.
-    Forecast is intentionally simple: fixed 8% nominal arithmetic-free log
+    Forecast is intentionally simple: fixed 8% nominal geometric
     return anchor, optionally 25% weight on trailing total log return.
     Cash carry uses trailing 63 sessions; variance uses trailing 126.
     Trend gate only forbids green when price is below its trailing 200-day SMA.
@@ -183,7 +183,7 @@ def schedule(calendar_bytes, key, begin):
 def option_segment(calendar, spot, q, rate, iv, safe, key, begin, end,
                    liquidate=False):
     from dataclasses import replace
-    full = schedule(calendar.asi8.tobytes(), key, begin)
+    full = schedule(calendar.to_numpy(dtype='datetime64[ns]').tobytes(), key, begin)
     use = full.starts < end-begin
     s = replace(full, starts=full.starts[use], expiry_days=full.expiry_days[use])
     sl = slice(begin, end+1)
