@@ -338,6 +338,106 @@ def run_path(sample, horizon, config, truth, transition=None):
                            already, float(changed))
     return rows, detection
 
+def write_summary(frame, detection, out):
+    """Compute reports from raw paired paths, including combined shards."""
+    frame = frame[['regime','path','strategy','real_cagr','drawdown','real_wealth']].copy()
+    detection = detection.copy()
+    base = frame.pivot(index=['regime','path'], columns='strategy', values='real_cagr')
+    frame = frame.join(base[['SPX_1X','TBILL']].rename(columns={
+        'SPX_1X':'spx_cagr','TBILL':'bill_cagr'}), on=['regime','path'])
+    frame['below_spx'] = frame.real_cagr < frame.spx_cagr
+    frame['below_bills'] = frame.real_cagr < frame.bill_cagr
+    frame = frame.join(base[['NDX_1X']].rename(columns={'NDX_1X':'ndx_cagr'}),on=['regime','path'])
+    frame['below_ndx'] = frame.real_cagr < frame.ndx_cagr
+    frame['dd60'] = frame.drawdown < -.60
+    frame['dd50'] = frame.drawdown < -.50
+    frame['dd75'] = frame.drawdown < -.75
+    summary = frame.groupby(['regime','strategy']).agg(
+        median_cagr=('real_cagr','median'),
+        p5_cagr=('real_cagr',lambda x: x.quantile(.05)),
+        median_drawdown=('drawdown','median'),
+        p5_drawdown=('drawdown',lambda x: x.quantile(.05)),
+        p_below_spx=('below_spx','mean'), p_below_bills=('below_bills','mean'),
+        p_below_ndx=('below_ndx','mean'),
+        p_dd50=('dd50','mean'), p_dd60=('dd60','mean'), p_dd75=('dd75','mean'),
+        median_real_wealth=('real_wealth','median')).reset_index()
+    # Oracle is diagnostic, not a feasible frontier member.
+    feasible = ~summary.strategy.str.contains('ORACLE')
+    summary['pareto'] = False
+    summary['median_regret'] = np.nan
+    for _, sub in summary[feasible].groupby('regime'):
+        for idx, row in sub.iterrows():
+            dominates = ((sub.median_cagr >= row.median_cagr) &
+                         (sub.p5_cagr >= row.p5_cagr) &
+                         (sub.p_dd60 <= row.p_dd60) &
+                         ((sub.median_cagr > row.median_cagr) |
+                          (sub.p5_cagr > row.p5_cagr) |
+                          (sub.p_dd60 < row.p_dd60)))
+            summary.loc[idx,'pareto'] = not dominates.any()
+            summary.loc[idx,'median_regret'] = sub.median_cagr.max()-row.median_cagr
+    out.mkdir(parents=True, exist_ok=True)
+    summary.to_csv(out/'summary.csv', index=False)
+    frame.to_csv(out/'paths.csv', index=False)
+    detection.to_csv(out/'detection.csv', index=False)
+    detection['missed'] = np.where(
+        (detection.true_state_changed == 1) & (detection.already_at_new_state == 0),
+        detection.first_match_quarters.isna().astype(float), np.nan)
+    detection.groupby(['regime','signal']).agg(
+        state_match=('state_match','mean'), mean_switches=('switches','mean'),
+        over_risk_fraction=('over_risk_fraction','mean'),
+        under_risk_fraction=('under_risk_fraction','mean'),
+        median_detection_quarters=('first_match_quarters','median'),
+        already_at_new_state=('already_at_new_state','mean'),
+        missed_shift_fraction=('missed','mean'),
+        green_fraction=('green_fraction','mean'),
+        red_fraction=('red_fraction','mean')).reset_index().to_csv(
+            out/'detection_summary.csv', index=False)
+    summary[summary.strategy.str.startswith('NDX') & feasible].to_csv(out/'nasdaq_decision.csv',index=False)
+    # Paired incremental comparisons isolate budget and duration decisions.
+    pairs = [(f'NDX_{hi}_{sleeve}', f'NDX_{lo}_{sleeve}')
+             for sleeve in ('BILLS','LONG','MIXED','DURATION_GATE')
+             for hi,lo in (('85_30','80_25'),('90_35','85_30'),('90_40','85_30'))]
+    pairs += [(f'NDX_{key}_{sleeve}',f'NDX_{key}_BILLS')
+              for key in STRUCTURES for sleeve in ('LONG','MIXED','DURATION_GATE')]
+    pairs += [('NDX_ADAPT_CALL_COMBINED_Q2_DURATION_GATE','NDX_85_30_MIXED'),
+              ('NDX_ADAPT_CALL_COMBINED_Q2_DURATION_GATE','NDX_90_40_MIXED'),
+              ('NDX_ADAPT_CALL_OWN_Q2_DURATION_GATE','NDX_85_30_MIXED')]
+    comparisons = []
+    for regime, sub in frame.groupby('regime'):
+        ret = sub.pivot(index='path',columns='strategy',values='real_cagr')
+        dd = sub.pivot(index='path',columns='strategy',values='drawdown')
+        for a,b in pairs:
+            if a not in ret or b not in ret:
+                continue
+            delta = ret[a]-ret[b]
+            comparisons.append(dict(regime=regime,strategy=a,reference=b,
+                paths=len(delta),median_cagr_gain=delta.median(),
+                p5_cagr_gain=delta.quantile(.05),p95_cagr_gain=delta.quantile(.95),
+                p_outperform=(delta>0).mean(),
+                median_additional_drawdown=(dd[b]-dd[a]).median(),
+                additional_dd60_probability=(dd[a]<-.6).mean()-(dd[b]<-.6).mean()))
+    pd.DataFrame(comparisons).to_csv(out/'paired_decisions.csv',index=False)
+    # Illustrative drawdown-probability constraints, not user risk preferences.
+    choices=[]
+    for regime,sub in summary[feasible & summary.strategy.str.startswith('NDX')].groupby('regime'):
+        for cap in (.05,.10,.25,.50,1.):
+            eligible=sub[sub.p_dd60<=cap]
+            for objective in ('median_cagr','p5_cagr'):
+                if len(eligible):
+                    row=eligible.loc[eligible[objective].idxmax()]
+                    choices.append(dict(regime=regime,dd60_cap=cap,objective=objective,
+                        strategy=row.strategy,median_cagr=row.median_cagr,
+                        p5_cagr=row.p5_cagr,p_dd60=row.p_dd60))
+    pd.DataFrame(choices).to_csv(out/'constrained_decisions.csv',index=False)
+    summary[feasible].groupby('strategy').agg(
+        worst_regime_median_cagr=('median_cagr','min'),
+        worst_regime_p5_cagr=('p5_cagr','min'),
+        worst_regime_p_dd60=('p_dd60','max'),
+        max_median_regret=('median_regret','max'),
+        pareto_fraction=('pareto','mean')).reset_index().to_csv(
+            out/'cross_regime.csv', index=False)
+    return summary
+
 def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
     inputs = load(root)
     market, _ = underlying_inputs(inputs, root)
@@ -387,67 +487,8 @@ def run(root, paths=100, years=20, block=63, seed=SEED, output=None):
                         under_risk_fraction=under, already_at_new_state=already,
                         true_state_changed=changed))
         print(f'{label}: {paths} paired paths', flush=True)
-    frame = pd.DataFrame(rows)
-    base = frame.pivot(index=['regime','path'], columns='strategy', values='real_cagr')
-    frame = frame.join(base[['SPX_1X','TBILL']].rename(columns={
-        'SPX_1X':'spx_cagr','TBILL':'bill_cagr'}), on=['regime','path'])
-    frame['below_spx'] = frame.real_cagr < frame.spx_cagr
-    frame['below_bills'] = frame.real_cagr < frame.bill_cagr
-    frame = frame.join(base[['NDX_1X']].rename(columns={'NDX_1X':'ndx_cagr'}),on=['regime','path'])
-    frame['below_ndx'] = frame.real_cagr < frame.ndx_cagr
-    frame['dd60'] = frame.drawdown < -.60
-    frame['dd50'] = frame.drawdown < -.50
-    frame['dd75'] = frame.drawdown < -.75
-    summary = frame.groupby(['regime','strategy']).agg(
-        median_cagr=('real_cagr','median'),
-        p5_cagr=('real_cagr',lambda x: x.quantile(.05)),
-        median_drawdown=('drawdown','median'),
-        p5_drawdown=('drawdown',lambda x: x.quantile(.05)),
-        p_below_spx=('below_spx','mean'), p_below_bills=('below_bills','mean'),
-        p_below_ndx=('below_ndx','mean'),
-        p_dd50=('dd50','mean'), p_dd60=('dd60','mean'), p_dd75=('dd75','mean'),
-        median_real_wealth=('real_wealth','median')).reset_index()
-    # Oracle is diagnostic, not a feasible frontier member.
-    feasible = ~summary.strategy.str.contains('ORACLE')
-    summary['pareto'] = False
-    summary['median_regret'] = np.nan
-    for _, sub in summary[feasible].groupby('regime'):
-        for idx, row in sub.iterrows():
-            dominates = ((sub.median_cagr >= row.median_cagr) &
-                         (sub.p5_cagr >= row.p5_cagr) &
-                         (sub.p_dd60 <= row.p_dd60) &
-                         ((sub.median_cagr > row.median_cagr) |
-                          (sub.p5_cagr > row.p5_cagr) |
-                          (sub.p_dd60 < row.p_dd60)))
-            summary.loc[idx,'pareto'] = not dominates.any()
-            summary.loc[idx,'median_regret'] = sub.median_cagr.max()-row.median_cagr
     out = output or root/'data'/'processed'/'secular_regime_stress'
-    out.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(out/'summary.csv', index=False)
-    frame.to_csv(out/'paths.csv', index=False)
-    detection = pd.DataFrame(detectors)
-    detection.to_csv(out/'detection.csv', index=False)
-    detection['missed'] = np.where(
-        (detection.true_state_changed == 1) & (detection.already_at_new_state == 0),
-        detection.first_match_quarters.isna().astype(float), np.nan)
-    detection.groupby(['regime','signal']).agg(
-        state_match=('state_match','mean'), mean_switches=('switches','mean'),
-        over_risk_fraction=('over_risk_fraction','mean'),
-        under_risk_fraction=('under_risk_fraction','mean'),
-        median_detection_quarters=('first_match_quarters','median'),
-        already_at_new_state=('already_at_new_state','mean'),
-        missed_shift_fraction=('missed','mean'),
-        green_fraction=('green_fraction','mean'),
-        red_fraction=('red_fraction','mean')).reset_index().to_csv(
-            out/'detection_summary.csv', index=False)
-    summary[summary.strategy.str.startswith('NDX') & feasible].to_csv(out/'nasdaq_decision.csv',index=False)
-    summary[feasible].groupby('strategy').agg(
-        worst_regime_median_cagr=('median_cagr','min'),
-        worst_regime_p5_cagr=('p5_cagr','min'),
-        worst_regime_p_dd60=('p_dd60','max'),
-        max_median_regret=('median_regret','max'),
-        pareto_fraction=('pareto','mean')).reset_index().to_csv(
-            out/'cross_regime.csv', index=False)
+    summary = write_summary(pd.DataFrame(rows), pd.DataFrame(detectors), out)
     (out/'manifest.json').write_text(json.dumps(dict(
         paths=paths, years=years, block=block, seed=seed,
         inflation=INFLATION, regimes=[r.__dict__ for r in REGIMES],
