@@ -1,0 +1,55 @@
+name: Secular regime decision experiment
+on:
+  push:
+    branches: ['experiment/secular-regime-adaptation']
+    paths: ['src/letf/secular_regime_stress.py', 'tests/test_secular_regime_stress.py', '.github/workflows/secular-regime.yml']
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: 'Paired paths per scenario (increase for stable tails)'
+        default: '100'
+        type: string
+      years:
+        description: 'Investment horizon'
+        default: '20'
+        type: choice
+        options: ['10', '20', '30']
+permissions:
+  contents: read
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - run: python -m unittest discover -s tests -p test_secular_regime_stress.py -v
+      - name: Run frozen-input experiment
+        env:
+          PATH_COUNT: ${{ inputs.paths || '12' }}
+          YEARS: ${{ inputs.years || '20' }}
+        run: python -m letf.secular_regime_stress --paths "$PATH_COUNT" --years "$YEARS" --output data/processed/secular_regime_stress
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secular-regime-results
+          path: data/processed/secular_regime_stress/
+          if-no-files-found: error
+      - name: Write focused results to job summary
+        run: |
+          python - <<'PY'
+          import os
+          import pandas as pd
+          p = pd.read_csv('data/processed/secular_regime_stress/nasdaq_decision.csv')
+          keep = ['NDX_80_25_LONG','NDX_85_30_LONG','NDX_90_35_LONG','NDX_90_40_LONG',
+                  'NDX_85_30_MIXED','NDX_90_40_MIXED','NDX_85_30_BILLS',
+                  'NDX_ADAPT_CALL_COMBINED_Q2_DURATION_GATE','NDX_1X']
+          p = p[p.strategy.isin(keep)]
+          cols = ['regime','strategy','median_cagr','p5_cagr','p_dd60','p_below_ndx']
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Nasdaq decision experiment (small runs are smoke tests, not tail estimates)\n')
+              f.write('\n```\n'+p[cols].to_string(index=False)+'\n```\n')
+          print(p[cols].to_string(index=False))
+          PY
