@@ -51,3 +51,17 @@ The four Nasdaq and SPX option structures (80/25, 85/30, 90/35, 90/40) now run a
 nasdaq_decision.csv contains every feasible Nasdaq variant, including paired probability of underperforming NDX_1X. The dedicated Secular regime decision experiment workflow runs a small smoke test on branch updates and can be manually dispatched at higher path counts. Twelve paths do not establish meaningful tail probabilities.
 
 The immediate decision should be conditional on actual available option bid/ask quotes, maturity and implied volatility, the investor's maximum tolerable portfolio drawdown, and the maturity of the Treasury reserve. Historical return superiority is not an estimate of prospective performance. No trade instruction is generated from these experiments.
+
+
+## Decision-stage experiment
+
+The large workflow uses 16 independently seeded shards of 128 paths, or 2,048 paired paths per scenario at 20 years. It recomputes quantiles, risk constraints, and paired comparisons from raw path outcomes rather than averaging shard summaries. It validates disjoint seeds, identical settings and complete regime/strategy coverage. Outputs include paired_decisions.csv (incremental CAGR, probability of winning, extra drawdown), and constrained_decisions.csv (best median or fifth-percentile CAGR under illustrative drawdown-probability limits). The constraints are not the investor's stated preferences.
+
+A separate forward_regime_signal module accepts point-in-time estimates of forward P/E, per-share earnings growth, dividend yield, cash yield, realized volatility and inflation. It tests earnings growth +/-3 percentage points and terminal valuation ratios of 70%, 85%, 100% and 115% of initial valuation over an explicit horizon. It computes the EPS growth needed for 2x and 3x constant-leverage hurdles. It rejects estimates published after the decision date. The hurdle is a screening diagnostic, not a direct valuation of rolling options. No actual historical earnings estimates or current option quotes are supplied; independent vendor data and vintage-aware walk-forward evaluation are still required.
+
+```bash
+python -m letf.forward_regime_signal estimates.csv --horizon 10 --output forward_screen.csv
+python -m letf.nasdaq_entry_decision quotes.csv --bill-yield 0.04 --long-yield 0.05 --output entry_stress.csv
+```
+
+Rates in these example commands are hypothetical. Required columns and input units are in the modules' docstrings. Neither module generates a trade instruction.
