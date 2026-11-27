@@ -1,0 +1,48 @@
+name: ATM OTM LEAPS frontier experiment
+on:
+  push:
+    branches: ['experiment/atm-otm-leaps-frontier']
+    paths: ['experiments/atm_otm_frontier.py', '.github/workflows/atm_otm_frontier.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arm: baseline, sizing: budget, years: 20, paths: 15000}
+          - {arm: baseline, sizing: budget, years: 30, paths: 15000}
+          - {arm: baseline, sizing: delta, years: 30, paths: 3000}
+          - {arm: iv0, sizing: budget, years: 30, paths: 3000}
+          - {arm: iv6, sizing: budget, years: 30, paths: 3000}
+          - {arm: skew_half, sizing: budget, years: 30, paths: 3000}
+          - {arm: skew_full, sizing: budget, years: 30, paths: 3000}
+          - {arm: cost0, sizing: budget, years: 30, paths: 3000}
+          - {arm: cost2, sizing: budget, years: 30, paths: 3000}
+          - {arm: cost4, sizing: budget, years: 30, paths: 3000}
+          - {arm: skew_cost4, sizing: budget, years: 30, paths: 3000}
+          - {arm: duration30, sizing: delta, years: 30, paths: 3000}
+          - {arm: duration36, sizing: delta, years: 30, paths: 3000}
+          - {arm: roll6, sizing: delta, years: 30, paths: 3000}
+          - {arm: roll18, sizing: delta, years: 30, paths: 3000}
+          - {arm: growth_low, sizing: budget, years: 30, paths: 3000}
+          - {arm: growth_high, sizing: budget, years: 30, paths: 3000}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e .
+      - name: Smoke test using frozen repository inputs
+        run: python experiments/atm_otm_frontier.py --arm ${{ matrix.arm }} --sizing ${{ matrix.sizing }} --years ${{ matrix.years }} --paths 2 --workers 1 --out /tmp/atm-otm-smoke
+      - name: Run matched historical bootstrap
+        run: python experiments/atm_otm_frontier.py --arm ${{ matrix.arm }} --sizing ${{ matrix.sizing }} --years ${{ matrix.years }} --paths ${{ matrix.paths }} --workers 4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atm-otm-${{ matrix.arm }}-${{ matrix.sizing }}-${{ matrix.years }}y
+          path: experiment-results/
+          retention-days: 30
